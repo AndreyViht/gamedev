@@ -39,7 +39,7 @@ export const AdminSiteStatsSection: React.FC<AdminSiteStatsSectionProps> = ({ cu
         try {
             let usersCount: number | null = null;
             let visitsCount: number | null = null;
-            let adClicksCount: number | null = null;
+            let adClicksCountValue: string | number = parseInt(DEFAULT_STATISTICS_VALUES[TOTAL_AD_CLICKS_KEY] || "0", 10);
 
             // Fetch total users
             const { data: usersData, error: usersError } = await supabase.rpc('admin_get_total_users_count');
@@ -57,23 +57,31 @@ export const AdminSiteStatsSection: React.FC<AdminSiteStatsSectionProps> = ({ cu
             }
             visitsCount = visitsData;
             
-            // Fetch total ad clicks from app_settings
-            const { data: adClicksData, error: adClicksError } = await supabase
+            // Fetch total ad clicks from app_settings without .single()
+            const { data: adClicksDataArray, error: adClicksError } = await supabase
                 .from('app_settings')
                 .select('value')
                 .eq('key', TOTAL_AD_CLICKS_KEY)
-                .single();
+                .limit(1); // Expect 0 or 1 row
             
-            if (adClicksError && adClicksError.code !== 'PGRST116') { // PGRST116: single row not found, which is fine if not set
-                 throw new Error(`Ошибка загрузки кликов по рекламе: ${adClicksError.message}`);
+            if (adClicksError) {
+                 // Don't throw if it's just "not found", but log other errors
+                if (adClicksError.code !== 'PGRST116') { // PGRST116 can be ignored if we expect the key might not exist
+                     console.warn(`Ошибка загрузки кликов по рекламе: ${adClicksError.message}`);
+                }
             }
-            adClicksCount = adClicksData ? parseInt(adClicksData.value, 10) : parseInt(DEFAULT_STATISTICS_VALUES[TOTAL_AD_CLICKS_KEY] || "0", 10);
+            
+            if (adClicksDataArray && adClicksDataArray.length > 0 && adClicksDataArray[0].value) {
+                adClicksCountValue = parseInt(adClicksDataArray[0].value, 10);
+            } else {
+                adClicksCountValue = parseInt(DEFAULT_STATISTICS_VALUES[TOTAL_AD_CLICKS_KEY] || "0", 10);
+            }
 
 
             setStats({
                 totalUsers: usersCount,
                 totalVisits: visitsCount,
-                totalAdClicks: adClicksCount,
+                totalAdClicks: Number.isFinite(adClicksCountValue) ? adClicksCountValue : 0,
             });
 
         } catch (err: any) {
@@ -89,7 +97,7 @@ export const AdminSiteStatsSection: React.FC<AdminSiteStatsSectionProps> = ({ cu
     }, [fetchStats]);
 
     const StatCard: React.FC<{ title: string; value: number | string | null; icon: React.ReactNode; note?: string }> = ({ title, value, icon, note }) => (
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item={true} xs={12} sm={6} md={4}>
             <Paper sx={{ p: 2.5, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', borderRadius: 'var(--border-radius)' }} elevation={2}>
                 <Box sx={{ fontSize: '2.5rem', color: 'primary.main', mb: 1 }}>{icon}</Box>
                 <Typography variant="h6" component="h3" gutterBottom sx={{textAlign: 'center'}}>{title}</Typography>
@@ -149,7 +157,7 @@ export const AdminSiteStatsSection: React.FC<AdminSiteStatsSectionProps> = ({ cu
               <Typography variant="caption" component="ul" sx={{pl: 2, listStyleType: 'disc'}}>
                 <li>Данные о пользователях и входах получаются с помощью RPC функций `admin_get_total_users_count` и `admin_get_total_logins_count`. Убедитесь, что они созданы в Supabase SQL Editor и корректно настроены права доступа.</li>
                 <li>"Пользователей онлайн" является аппроксимацией и показывает количество пользователей, которые совершили хотя бы один вход. Для точного отслеживания посещений рекомендуется интегрировать специализированные аналитические инструменты.</li>
-                <li>Данные о кликах по рекламе считываются из таблицы `app_settings` (ключ: `{TOTAL_AD_CLICKS_KEY}`). Реализация самого механизма подсчета кликов (например, при клике на рекламный баннер) здесь не включена и требует отдельной настройки.</li>
+                <li>Данные о кликах по рекламе считываются из таблицы `app_settings` (ключ: `{TOTAL_AD_CLICKS_KEY}`). Реализация самого механизма подсчета кликов (например, при клике на рекламный баннер) здесь не включена и требует отдельной настройки. Если ключ `{TOTAL_AD_CLICKS_KEY}` отсутствует в `app_settings`, будет показано значение по умолчанию (0).</li>
               </Typography>
             </Alert>
         </Box>

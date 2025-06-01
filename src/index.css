@@ -155,7 +155,8 @@ body::-webkit-scrollbar,
 .ai-chat-page.vk-style .chat-messages-container::-webkit-scrollbar,
 .ai-chat-page.vk-style .chat-input-area textarea::-webkit-scrollbar,
 .personalization-modal-content::-webkit-scrollbar,
-.modal-content::-webkit-scrollbar /* General modal scrollbar */
+.modal-content::-webkit-scrollbar, /* General modal scrollbar */
+.version-history-page::-webkit-scrollbar /* Version history page scrollbar */
 {
   display: none;
   width: 0; 
@@ -172,7 +173,8 @@ body,
 .ai-chat-page.vk-style .chat-messages-container,
 .ai-chat-page.vk-style .chat-input-area textarea,
 .personalization-modal-content,
-.modal-content /* General modal scrollbar */
+.modal-content, /* General modal scrollbar */
+.version-history-page /* Version history page scrollbar */
 {
   scrollbar-width: none; 
   -ms-overflow-style: none; 
@@ -181,7 +183,8 @@ body,
 .ai-chat-page.vk-style .chat-messages-container,
 .ai-chat-page.vk-style .chat-input-area textarea,
 .personalization-modal-content,
-.modal-content /* General modal scrollbar */
+.modal-content, /* General modal scrollbar */
+.version-history-page /* Version history page scrollbar */
 {
   overflow-y: auto;
 }
@@ -203,7 +206,7 @@ body,
 
 /* Main Content Area */
 .main-content { flex-grow: 1; width: 100%; position: relative; z-index: 1; } 
-.landing-page, .auth-page {
+.landing-page, .auth-page, .version-history-page {
   padding: var(--content-padding); 
   max-width: var(--content-max-width); 
   margin: 0 auto; 
@@ -256,17 +259,13 @@ body,
   text-align: center;
   margin: 30px auto;
   max-width: 800px;
-  /* opacity: 0; <-- REMOVED for visibility */
-  /* animation: aboutUsEnterAnimation 0.8s cubic-bezier(0.25, 0.1, 0.25, 1) 0.2s forwards; <-- REMOVED */
   position: relative; 
   z-index: 10;
   background-color: var(--card-background-color); 
   color: var(--text-color); 
-  /* Base shadow managed by Paper elevation, hover by .floating-container */
 }
 
 .order-section-content { /* Class for Paper in Order section */
-  /* Base shadow managed by Paper elevation, hover by .floating-container */
 }
 
 
@@ -346,36 +345,35 @@ body,
 /* AI Chat Page & Help Chat & Admin Support Chat Common Layout (VK Style) */
 .ai-chat-page.vk-style, .help-chat-section.vk-style, .admin-support-section.vk-style {
   display: flex; 
-  flex-direction: row; /* Default side-by-side */
+  flex-direction: row; /* Default side-by-side for desktop */
   height: 100%; 
   max-width: 100%; 
   margin: 0 auto;
   background-color: transparent; 
   animation: fadeIn var(--animation-speed-medium) ease-out; 
   gap: 0;
-  overflow: hidden; /* Prevent parent scrolling issues */
+  overflow: hidden; 
 }
 
+/* Chat Sessions Sidebar (Desktop and Base) */
 .ai-chat-page.vk-style .chat-sessions-sidebar,
 .help-chat-section.vk-style .chat-sessions-sidebar,
 .admin-support-section.vk-style .chat-sessions-sidebar {
-  width: var(--dashboard-sidebar-width); /* Default sidebar width */
+  width: var(--dashboard-sidebar-width); 
   flex-shrink: 0;
   background-color: var(--vk-chat-sidebar-bg);
   border-right: 1px solid var(--vk-chat-sidebar-border);
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow-y: hidden; /* Internal list will scroll */
-}
-/* Specific for Help Chat sidebar if different width is desired */
-.help-chat-section.vk-style .chat-sessions-sidebar {
-  width: var(--help-chat-sidebar-width); 
-}
-.admin-support-section.vk-style .chat-sessions-sidebar {
-  width: var(--admin-support-sidebar-width);
+  overflow-y: hidden;
+  transition: transform 0.3s ease-in-out, width 0.3s ease-in-out;
+  position: relative; /* For z-index context if needed later */
+  z-index: 100;
 }
 
+.help-chat-section.vk-style .chat-sessions-sidebar { width: var(--help-chat-sidebar-width); }
+.admin-support-section.vk-style .chat-sessions-sidebar { width: var(--admin-support-sidebar-width); }
 
 .ai-chat-page.vk-style .chat-sessions-sidebar .chat-sessions-list,
 .help-chat-section.vk-style .chat-sessions-sidebar .chat-sessions-list,
@@ -385,6 +383,7 @@ body,
   padding: 8px;
 }
 
+/* Chat Main Area (Desktop and Base) */
 .ai-chat-page.vk-style .chat-main-area,
 .help-chat-section.vk-style .chat-main-area,
 .admin-support-section.vk-style .chat-main-area {
@@ -392,10 +391,11 @@ body,
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow: hidden; /* Main area manages its own scroll */
+  overflow: hidden; 
   background-color: var(--vk-chat-bg);
 }
 
+/* Chat Header (Desktop and Base) */
 .ai-chat-page.vk-style .chat-header,
 .help-chat-section.vk-style .chat-header,
 .admin-support-section.vk-style .chat-header {
@@ -412,6 +412,30 @@ body,
 .help-chat-section.vk-style .chat-header .chat-page-title,
 .admin-support-section.vk-style .chat-header .chat-page-title { margin-bottom: 0 !important; }
 
+/* Mobile Chat Toggle Button (Minimalistic) */
+.mobile-chat-toggle-button {
+  display: none; /* Hidden by default, shown in media query */
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1010; /* Above chat content, below modals */
+  box-shadow: var(--box-shadow-strong);
+  font-size: 1.5em;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-chat-header-button { /* Minimalistic button in header */
+  display: none; /* Hidden on desktop */
+}
+
+/* Chat Messages & Input Area (Common styling) */
 .ai-chat-page.vk-style .chat-messages-container,
 .help-chat-section.vk-style .chat-messages-container,
 .admin-support-section.vk-style .chat-messages-container {
@@ -420,8 +444,7 @@ body,
   padding: 15px;
 }
 
-/* Common Message Bubble Styling */
-.message-bubble-wrapper { /* New wrapper for alignment */
+.message-bubble-wrapper {
   display: flex;
   margin-bottom: 12px;
   animation: messageAppearAnimation 0.3s ease-out forwards;
@@ -454,7 +477,7 @@ body,
   margin-bottom: 4px;
   display: block;
 }
-.message-bubble-wrapper.user .message-sender-name { display: none; } /* Hide for user */
+.message-bubble-wrapper.user .message-sender-name { display: none; }
 
 .message-timestamp {
   font-size: 0.75em;
@@ -501,15 +524,16 @@ body,
     color: white;
     border: none;
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 48px; /* Increased from 44px for better touch target on mobile */
+    height: 48px; /* Increased from 44px */
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    font-size: 1.4em;
+    font-size: 1.6em; /* Slightly increased */
     flex-shrink: 0;
     transition: background-color var(--transition-speed);
+    padding: 0; 
 }
 .ai-chat-page.vk-style .chat-input-area .chat-send-button:disabled,
 .help-chat-section.vk-style .chat-input-area .chat-send-button:disabled,
@@ -548,7 +572,6 @@ body,
   animation: fadeIn var(--animation-speed-medium) ease-out;
 }
 
-/* AI Settings Modal & Name Input Modal Specifics */
 .ai-settings-modal .form-group,
 .name-input-modal .form-group {
     margin-bottom: 20px;
@@ -562,7 +585,7 @@ body,
 }
 .ai-settings-modal textarea,
 .ai-settings-modal select,
-.name-input-modal input[type="text"] { /* Added NameInputModal input */
+.name-input-modal input[type="text"] { 
     width: 100%;
     padding: 12px 15px;
     border: 1px solid var(--border-color);
@@ -574,7 +597,7 @@ body,
 }
 .ai-settings-modal textarea:focus,
 .ai-settings-modal select:focus,
-.name-input-modal input[type="text"]:focus { /* Added NameInputModal input focus */
+.name-input-modal input[type="text"]:focus { 
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, transparent);
     outline: none;
@@ -586,14 +609,13 @@ body,
     line-height: 1.4;
 }
 .ai-settings-modal .modal-actions,
-.name-input-modal .modal-actions { /* Added NameInputModal actions */
+.name-input-modal .modal-actions { 
     display: flex;
     justify-content: flex-end;
     gap: 12px;
     margin-top: 25px;
 }
 
-/* General Modal Buttons */
 .modal-button {
     padding: 10px 20px; border-radius: var(--border-radius-small); cursor: pointer;
     font-weight: 500; transition: background-color var(--transition-speed), opacity var(--transition-speed);
@@ -618,8 +640,120 @@ body,
 .rte-button b, .rte-button i { font-weight: bold; font-style: normal; }
 
 
+/* Mobile Specific Chat Layout Overrides */
+@media (max-width: 768px) and (pointer: coarse) {
+  /* Hide desktop sidebar by default on mobile */
+  .ai-chat-page.vk-style .chat-sessions-sidebar,
+  .help-chat-section.vk-style .chat-sessions-sidebar,
+  .admin-support-section.vk-style .chat-sessions-sidebar {
+    position: fixed; /* Or absolute if parent is relative and full height */
+    top: 0; /* Or adjust if below a mobile header */
+    left: 0;
+    width: 85%; /* Adjust width as needed */
+    max-width: 300px;
+    height: 100%;
+    transform: translateX(-100%); /* Hidden off-screen */
+    z-index: 1000; /* Above chat content */
+    border-right: 1px solid var(--vk-chat-sidebar-border); /* Keep border */
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease-in-out;
+  }
+
+  /* When mobile sidebar is active */
+  .ai-chat-page.vk-style .chat-sessions-sidebar.mobile-sidebar-active,
+  .help-chat-section.vk-style .chat-sessions-sidebar.mobile-sidebar-active,
+  .admin-support-section.vk-style .chat-sessions-sidebar.mobile-sidebar-active {
+    transform: translateX(0);
+  }
+  
+  /* Chat Main Area on Mobile - should be full width */
+  .ai-chat-page.vk-style .chat-main-area,
+  .help-chat-section.vk-style .chat-main-area,
+  .admin-support-section.vk-style .chat-main-area {
+    width: 100%;
+    border-right: none; /* Remove right border if it was for desktop sidebar */
+    height: calc(100vh - var(--header-height)); /* Full height minus global header */
+  }
+  .dashboard-layout .ai-chat-page.vk-style .chat-main-area,
+  .dashboard-layout .help-chat-section.vk-style .chat-main-area,
+  .dashboard-layout .admin-support-section.vk-style .chat-main-area {
+     height: 100%; /* Full height within dashboard content area */
+  }
+
+
+  /* Chat Header on Mobile */
+  .ai-chat-page.vk-style .chat-header,
+  .help-chat-section.vk-style .chat-header,
+  .admin-support-section.vk-style .chat-header {
+     position: sticky; /* Make chat header sticky on mobile */
+     top: 0;
+     z-index: 100; /* Above messages */
+  }
+  .ai-chat-page.vk-style .chat-header .chat-controls,
+  .help-chat-section.vk-style .chat-header .chat-controls,
+  .admin-support-section.vk-style .chat-header .chat-controls {
+      gap: 0; /* Reduce gap for mobile header buttons */
+  }
+  .ai-chat-page.vk-style .chat-header .chat-controls .MuiIconButton-root,
+  .help-chat-section.vk-style .chat-header .chat-controls .MuiIconButton-root,
+  .admin-support-section.vk-style .chat-header .chat-controls .MuiIconButton-root {
+      padding: 8px; /* Smaller padding for mobile header buttons */
+  }
+  .ai-chat-page.vk-style .chat-header .ai-request-info {
+      display: none !important; /* Hide request info on mobile chat header */
+  }
+
+  /* Minimalistic buttons for mobile header */
+  .mobile-chat-header-button {
+    display: inline-flex; /* Show the mobile header button */
+    margin-right: 8px;
+  }
+
+  /* Chat Input Area on Mobile */
+  .ai-chat-page.vk-style .chat-input-area,
+  .help-chat-section.vk-style .chat-input-area,
+  .admin-support-section.vk-style .chat-input-area {
+    padding: 8px 10px; /* Slightly reduce padding for mobile */
+  }
+  .ai-chat-page.vk-style .chat-input-area textarea,
+  .help-chat-section.vk-style .chat-input-area textarea,
+  .admin-support-section.vk-style .chat-input-area textarea {
+    margin-right: 8px;
+    font-size: 0.95em; /* Slightly smaller font for mobile input */
+  }
+
+  /* Mobile FAB for toggling sidebar (if not using header button) */
+  .mobile-chat-toggle-button {
+    display: flex; /* Show FAB */
+  }
+  
+  /* Dashboard sidebar on mobile should be temporary */
+  .dashboard-layout .MuiDrawer-paper {
+      width: var(--dashboard-sidebar-width) !important; /* Ensure consistent width when open */
+  }
+}
+
+
 @media (max-width: 992px) { 
-  .ai-chat-page.vk-style, .help-chat-section.vk-style, .admin-support-section.vk-style { flex-direction: column-reverse; } 
+  /* This rule was for AI chat, Help chat, Admin Support chat when inside a dashboard layout. 
+     It made them column-reverse. We need to ensure this does not conflict with the new mobile-first chat design.
+     The new mobile design for chat pages uses fixed/absolute positioning for sidebar, so this rule might be less relevant 
+     or needs adjustment if those chat pages are direct views AND inside a dashboard.
+     For direct views (e.g., AIChatGuest), the new mobile CSS handles it.
+     If these chat pages are embedded within .dashboard-layout, their container needs to be full height.
+  */
+  .dashboard-layout > .ai-chat-page.vk-style, 
+  .dashboard-layout > .help-chat-section.vk-style, 
+  .dashboard-layout > .admin-support-section.vk-style {
+    /* If these are meant to be full screen sections inside dashboard on mobile, 
+       the flex-direction: column-reverse might still apply to the dashboard-layout itself.
+       However, the chat components themselves will now manage their own mobile sidebar behavior.
+       Let's keep this for now, as it affects the overall dashboard structure for these sections on tablets.
+    */
+    flex-direction: column; 
+  } 
+
+  /*
   .ai-chat-page.vk-style .chat-sessions-sidebar,
   .help-chat-section.vk-style .chat-sessions-sidebar,
   .admin-support-section.vk-style .chat-sessions-sidebar { 
@@ -627,12 +761,11 @@ body,
     border-left: none; border-top: 1px solid var(--vk-chat-sidebar-border);
     border-right: none; max-height: 280px; 
   }
-  .help-chat-section.vk-style .chat-sessions-sidebar {
-     max-height: 250px; /* Example specific height for mobile help */
-  }
-  .admin-support-section.vk-style .chat-sessions-sidebar {
-      max-height: 280px;
-  }
+  The above block is now handled by the new mobile chat sidebar logic if (pointer: coarse) is met.
+  If only max-width: 992px is met (e.g. landscape tablet without touch as primary), this old style might apply.
+  This needs careful testing. For now, let the new (max-width: 768px) and (pointer: coarse) take precedence.
+  */
+  
   .content-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 }
 @media (max-width: 768px) {
@@ -650,12 +783,11 @@ body,
     --font-size-base: 15px; --font-size-xs: 12px; --font-size-s: 13.5px;
     --font-size-m: 15px; --font-size-l: 16.5px; --content-padding: 15px;
     --header-height: 56px;
-     --help-chat-sidebar-width: 100%; /* Full width on very small screens for help chat sidebar */
-     --admin-support-sidebar-width: 100%;
   }
   .page-title { font-size: 1.8em; } .sub-page-title { font-size: 1.5em; }
   .auth-container { padding: 20px; }
   .modal-content { padding: 20px; }
+  .message-bubble { max-width: 85%; } /* Allow slightly wider bubbles on small screens */
 }
 .spinner { width: 22px; height: 22px; border: 3px solid color-mix(in srgb, var(--primary-color) 20%, transparent); border-left-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
 .spinner.small { width: 18px; height: 18px; border-width: 2.5px; }
@@ -674,7 +806,7 @@ body,
   from { opacity: 0; transform: translateY(15px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
-/* .chat-message.chat-message-appear { animation: messageAppearAnimation 0.3s ease-out forwards; } */ /* Replaced by message-bubble-wrapper animation */
+
 .spinner-dots { display: flex; }
 .spinner-dots div { width: 6px; height: 6px; background-color: var(--subtle-text-color); border-radius: 50%; margin: 0 2px; animation: spinnerDotsAnimation 1.4s infinite ease-in-out both; }
 .spinner-dots div:nth-child(1) { animation-delay: -0.32s; }
@@ -773,7 +905,7 @@ body,
 .form-group-checkbox input[type="checkbox"] { width: auto; margin-right: 5px; transform: scale(1.2); }
 
 /* Help Chat / Support Ticket specific styles */
-.support-tickets-sidebar h3 { /* Title inside sidebar */
+.support-tickets-sidebar h3 { 
   padding: 15px 18px 10px 18px;
   font-size: 1.1em;
   font-weight: 600;
@@ -798,7 +930,7 @@ body,
   border: 1px solid var(--divider-color); border-radius: var(--border-radius-small);
   cursor: pointer; display: flex; flex-direction: column; align-items: flex-start;
   position: relative; transition: background-color var(--transition-speed), border-color var(--transition-speed);
-  color: var(--text-color); /* Ensure text color is applied */
+  color: var(--text-color); 
 }
 .support-tickets-sidebar .chat-session-button:hover {
   background-color: var(--divider-color); border-color: var(--border-color);
@@ -949,9 +1081,9 @@ body,
 
 /* Top Users Modal Specific Styles */
 .top-users-modal .modal-content {
-  max-width: 600px; /* Wider modal for table */
+  max-width: 600px; 
 }
-.top-users-list { /* Replaced direct ul styling with MUI Table structure */
+.top-users-list { 
   width: 100%;
 }
 .top-users-list .MuiTableCell-head {
@@ -995,4 +1127,85 @@ body,
   background-color: var(--secondary-background-color);
   color: var(--text-color);
   font-size: 0.95em;
+}
+
+/* Version History Page Styles */
+.version-history-page {
+  padding: var(--content-padding);
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+.version-history-page .page-title {
+  text-align: center;
+  margin-bottom: 30px;
+}
+.version-item {
+  background-color: var(--card-background-color);
+  border-radius: var(--border-radius);
+  padding: 20px;
+  margin-bottom: 25px;
+  box-shadow: var(--box-shadow-light);
+}
+.version-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--divider-color);
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+}
+.version-item-header .version-number {
+  font-size: 1.5em;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+.version-item-header .version-date {
+  font-size: 0.9em;
+  color: var(--subtle-text-color);
+}
+.version-changes-list {
+  list-style-type: disc;
+  padding-left: 25px;
+  margin: 0;
+}
+.version-changes-list li {
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+.version-changes-list li::marker {
+  color: var(--primary-color);
+}
+.version-history-page .primary-button { /* Back button style */
+  display: block;
+  margin: 30px auto 0;
+  width: fit-content;
+}
+
+/* Mobile Chat Sidebar Backdrop */
+.mobile-sidebar-backdrop {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+    z-index: 999; /* Below sidebar, above main content */
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+.mobile-sidebar-backdrop.active {
+    display: block;
+    opacity: 1;
+}
+
+/* Ensure chat pages take full height in dashboard on mobile */
+@media (max-width: 768px) and (pointer: coarse) {
+    .dashboard-content > .ai-chat-page.vk-style,
+    .dashboard-content > .help-chat-section.vk-style,
+    .dashboard-content > .admin-support-section.vk-style {
+        height: 100%; /* Ensure chat sections take full height within dashboard main area */
+        display: flex; /* Ensure flex properties apply correctly */
+        flex-direction: column; /* Main area should stack header, messages, input */
+    }
 }

@@ -8,6 +8,16 @@ import { formatDate } from '../../../utils/helpers';
 import { APP_NAME } from '../../../config/constants';
 import { CodeBlock } from '../../common/CodeBlock';
 
+import { Box, TextField, Button, IconButton, Typography, Paper, List, ListItem, ListItemButton, ListItemText, CircularProgress, Alert, useMediaQuery, Fab, Drawer, Select, MenuItem, FormControl, InputLabel, Chip } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import SendIcon from '@mui/icons-material/Send';
+import MenuIcon from '@mui/icons-material/Menu';
+import CloseIcon from '@mui/icons-material/Close';
+import DeleteIcon from '@mui/icons-material/Delete';
+import SettingsIcon from '@mui/icons-material/Settings'; // Example for future actions
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+
+
 type TicketStatusFilter = 'all' | 'open' | 'pending_admin' | 'pending_user' | 'closed';
 
 interface AdminSupportChatsSectionProps {
@@ -36,6 +46,9 @@ export const AdminSupportChatsSection: React.FC<AdminSupportChatsSectionProps> =
     const [filterStatus, setFilterStatus] = useState<TicketStatusFilter>('pending_admin');
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
     const fetchAllTickets = useCallback(async () => {
         if (!supabase) { setError("Supabase не инициализирован."); setIsLoadingTickets(false); return; }
@@ -45,12 +58,9 @@ export const AdminSupportChatsSection: React.FC<AdminSupportChatsSectionProps> =
             if (filterStatus !== 'all') {
                 query = query.eq('status', filterStatus);
             }
-            // For 'all' or any other active filter, we might want to hide very old 'closed' tickets
-            // However, without a reliable 'deleted_at' or similar, this is complex client-side.
-            // The current sorting prioritizes unread by admin, then most recent.
             query = query.order('admin_has_unread', { ascending: false }) 
-                         .order('last_message_at', { ascending: false, nullsFirst: false }) // tickets with recent messages first
-                         .order('updated_at', { ascending: false }); // then by overall update time
+                         .order('last_message_at', { ascending: false, nullsFirst: false }) 
+                         .order('updated_at', { ascending: false });
 
             const { data, error: fetchError } = await query;
             if (fetchError) throw fetchError;
@@ -97,7 +107,10 @@ export const AdminSupportChatsSection: React.FC<AdminSupportChatsSectionProps> =
     
     useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-    const handleSelectTicket = (ticket: AdminSupportTicket) => setActiveTicket(ticket);
+    const handleSelectTicket = (ticket: AdminSupportTicket) => {
+        setActiveTicket(ticket);
+        if(isMobile) setMobileSidebarOpen(false);
+    };
 
 
     const handleSendMessage = async () => {
@@ -130,9 +143,9 @@ export const AdminSupportChatsSection: React.FC<AdminSupportChatsSectionProps> =
                 last_message_at: newMsgData.created_at,
                 last_message_snippet: newMsgData.message_text?.substring(0,50) || "[Сообщение от админа]", 
                 last_message_sender_role: 'admin',
-                user_has_unread: true, // Notify user of new admin message
-                admin_has_unread: false, // Admin just sent it, so it's read for admin
-                status: activeTicket.status === 'closed' ? 'closed' : 'pending_user', // If admin replies, it's now pending user
+                user_has_unread: true, 
+                admin_has_unread: false, 
+                status: activeTicket.status === 'closed' ? 'closed' : 'pending_user', 
                 updated_at: new Date().toISOString(),
             };
 
@@ -166,7 +179,6 @@ export const AdminSupportChatsSection: React.FC<AdminSupportChatsSectionProps> =
                 updatePayload.admin_has_unread = false;
             }
 
-
             const { error: updateError } = await supabase
                 .from('admin_support_tickets')
                 .update(updatePayload)
@@ -175,11 +187,9 @@ export const AdminSupportChatsSection: React.FC<AdminSupportChatsSectionProps> =
 
             const updatedTicket = { ...(allTickets.find(t=>t.id === ticketId) || activeTicket), ...updatePayload } as AdminSupportTicket;
 
-
             if(activeTicket?.id === ticketId) {
                 setActiveTicket(updatedTicket);
             }
-            // Refetch or smartly update list
             setAllTickets(prev => prev.map(t => t.id === ticketId ? updatedTicket : t).filter(t => filterStatus === 'all' || t.status === filterStatus));
             showToast(`Статус тикета изменен на "${newStatus}".`, 'success');
 
@@ -202,8 +212,6 @@ export const AdminSupportChatsSection: React.FC<AdminSupportChatsSectionProps> =
         setIsProcessing(true);
         setError(null);
         try {
-            // It's generally better to use an RPC function for cascading deletes or ensure RLS allows this.
-            // For simplicity, deleting messages first, then ticket.
             const { error: msgDeleteError } = await supabase
                 .from('admin_chat_messages')
                 .delete()
@@ -238,103 +246,157 @@ export const AdminSupportChatsSection: React.FC<AdminSupportChatsSectionProps> =
         { value: 'closed', label: 'Закрытые'},
         { value: 'all', label: 'Все тикеты'},
     ];
+
+    const ticketsSidebarContent = (
+        <Box 
+            className="chat-sessions-sidebar support-tickets-sidebar"
+            sx={{
+                width: isMobile ? '100%' : 'var(--admin-support-sidebar-width)',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                borderRight: isMobile ? 'none' : `1px solid ${theme.palette.divider}`,
+                bgcolor: 'background.paper'
+            }}
+        >
+            <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: '15px 18px 10px 18px', borderBottom: `1px solid ${theme.palette.divider}`}}>
+                 <Typography variant="h6" component="h3">Обращения</Typography>
+                {isMobile && <IconButton onClick={() => setMobileSidebarOpen(false)}><CloseIcon /></IconButton>}
+            </Box>
+            <FormControl variant="outlined" sx={{ m: 2, minWidth: 120 }}>
+                <InputLabel id="ticket-status-filter-label" sx={{fontSize: '0.9rem'}}>Фильтр</InputLabel>
+                <Select
+                    labelId="ticket-status-filter-label"
+                    id="ticket-status-filter"
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value as TicketStatusFilter)}
+                    label="Фильтр статуса"
+                    disabled={isLoadingTickets || isProcessing}
+                    size="small"
+                    sx={{fontSize: '0.9rem'}}
+                >
+                    {filterOptions.map(opt => <MenuItem key={opt.value} value={opt.value} sx={{fontSize: '0.9rem'}}>{opt.label}</MenuItem>)}
+                </Select>
+            </FormControl>
+            {isLoadingTickets && <Box sx={{p:2, textAlign:'center'}}><CircularProgress size={24} /><Typography variant="caption" display="block">Загрузка...</Typography></Box>}
+            {error && !isLoadingTickets && allTickets.length === 0 && <Alert severity="error" sx={{m:1}}>{error}</Alert>}
+            {!isLoadingTickets && allTickets.length === 0 && <Typography sx={{p:2, textAlign:'center'}}>Нет обращений по фильтру.</Typography>}
+            <List className="chat-sessions-list" sx={{flexGrow: 1, overflowY: 'auto', p:1}}>
+                {allTickets.map(ticket => (
+                    <ListItem key={ticket.id} disablePadding sx={{mb: 0.5}}>
+                        <ListItemButton 
+                            className="chat-session-button" 
+                            onClick={() => handleSelectTicket(ticket)} 
+                            selected={activeTicket?.id === ticket.id}
+                            title={`${ticket.subject || 'Тикет'} от ${ticket.user_display_name || ticket.user_viht_id || 'Пользователь'}`}
+                            sx={{
+                                borderRadius: 'var(--border-radius-small)',
+                                '&.Mui-selected': {bgcolor: 'action.selected'},
+                                flexDirection: 'column', alignItems: 'flex-start', p: '10px 12px'
+                            }}
+                        >
+                           <Box sx={{display:'flex', alignItems:'center', width:'100%', mb:0.5}}>
+                                <span className={`ticket-status-indicator ${ticket.status}`} style={{marginRight: '8px', flexShrink:0}}></span>
+                                <ListItemText 
+                                    primary={ticket.subject || `Обращение #${ticket.id.substring(0,6)}...`} 
+                                    secondary={`От: ${ticket.user_display_name || ticket.user_viht_id || 'N/A'}`}
+                                    primaryTypographyProps={{fontWeight: 500, noWrap: true, fontSize: '0.95rem'}}
+                                    secondaryTypographyProps={{fontSize: '0.75rem', noWrap: true, textOverflow: 'ellipsis', overflow: 'hidden'}}
+                                    sx={{mr:1, flexGrow:1, overflow:'hidden'}}
+                                />
+                                {ticket.admin_has_unread && <Chip label="Новое" color="error" size="small" sx={{ml:'auto', height: '18px', fontSize: '0.7rem', fontWeight:'bold'}} title="Новое сообщение"/>}
+                            </Box>
+                            <Typography variant="caption" sx={{fontSize: '0.7rem', color: 'text.secondary', width:'100%', textAlign:'right'}}>
+                                {formatDate(ticket.last_message_at || ticket.updated_at, true)}
+                            </Typography>
+                        </ListItemButton>
+                    </ListItem>
+                ))}
+            </List>
+        </Box>
+    );
     
     return (
-        <div className="admin-support-section vk-style"> {/* Apply vk-style for consistent layout */}
-            <aside className="chat-sessions-sidebar support-tickets-sidebar">
-                <h3>Обращения Пользователей</h3>
-                 <div className="form-group">
-                    <label htmlFor="ticket-status-filter">Фильтр статуса:</label>
-                    <select 
-                        id="ticket-status-filter" 
-                        value={filterStatus} 
-                        onChange={(e) => setFilterStatus(e.target.value as TicketStatusFilter)}
-                        disabled={isLoadingTickets || isProcessing}
-                    >
-                        {filterOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
-                </div>
-                {isLoadingTickets && <div className="loading-indicator small" style={{padding: '10px'}}><div className="spinner"></div>Загрузка обращений...</div>}
-                {error && !isLoadingTickets && allTickets.length === 0 && <p className="error-message" style={{padding: '10px'}}>{error}</p>}
-                {!isLoadingTickets && allTickets.length === 0 && <p style={{padding: '10px'}}>Нет обращений по текущему фильтру.</p>}
-                <ul className="chat-sessions-list">
-                    {allTickets.map(ticket => (
-                        <li key={ticket.id} className={activeTicket?.id === ticket.id ? 'active' : ''}>
-                            <button 
-                                className="chat-session-button chat-interactive-button" 
-                                onClick={() => handleSelectTicket(ticket)} 
-                                title={`${ticket.subject || 'Тикет'} от ${ticket.user_display_name || ticket.user_viht_id || 'Пользователь'}`}
-                            >
-                                <span className={`ticket-status-indicator ${ticket.status}`}></span>
-                                <span className="ticket-subject">
-                                    {ticket.subject || `Обращение #${ticket.id.substring(0,6)}...`}
-                                     <small style={{display: 'block', opacity: 0.7}}>
-                                        От: {ticket.user_display_name || ticket.user_viht_id || 'N/A'}
-                                     </small>
-                                </span>
-                                <span className="ticket-date">{formatDate(ticket.last_message_at || ticket.updated_at, true)}</span>
-                                {ticket.admin_has_unread && <span className="unread-indicator user-unread" title="Новое сообщение от пользователя">!</span>}
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            </aside>
+        <Box className="admin-support-section vk-style" sx={{ display: 'flex', height: '100%', position: 'relative', overflow: isMobile ? 'hidden' : 'visible' }}>
+             {isMobile ? (
+                <Drawer
+                    anchor="left"
+                    open={mobileSidebarOpen}
+                    onClose={() => setMobileSidebarOpen(false)}
+                    variant="temporary"
+                    ModalProps={{ keepMounted: true }}
+                    PaperProps={{ sx: { width: '80%', maxWidth: '340px' } }}
+                >
+                    {ticketsSidebarContent}
+                </Drawer>
+            ) : (
+                ticketsSidebarContent
+            )}
 
-            <div className="chat-main-area support-chat-main-area">
+            <Box className="chat-main-area support-chat-main-area" sx={{flexGrow: 1, display: 'flex', flexDirection: 'column'}}>
                 {!activeTicket && !isLoadingTickets && (
-                    <div className="no-active-ticket-placeholder">
-                        <h2>Панель Поддержки {APP_NAME}</h2>
-                        <p>Выберите обращение из списка слева для просмотра и ответа.</p>
-                         {error && <p className="error-message">{error}</p>}
-                    </div>
+                    <Box className="no-active-ticket-placeholder" sx={{textAlign: 'center', p: {xs:2, sm:5}, m:'auto'}}>
+                        <Typography variant={isMobile ? "h6" : "h5"} component="h2" gutterBottom>Панель Поддержки {APP_NAME}</Typography>
+                        <Typography>Выберите обращение из списка {isMobile ? ' (нажмите ☰)' : 'слева'} для просмотра и ответа.</Typography>
+                         {error && <Alert severity="error" sx={{mt:2}}>{error}</Alert>}
+                         {isMobile && (
+                            <Button
+                                variant="contained"
+                                startIcon={<MenuIcon />}
+                                onClick={() => setMobileSidebarOpen(true)}
+                                sx={{ mt: 2 }}
+                            >
+                                Список Обращений
+                            </Button>
+                        )}
+                    </Box>
                 )}
                 {activeTicket && (
                     <>
-                        <header className="chat-header" style={{alignItems: 'flex-start', flexDirection: 'column', gap: '5px'}}>
-                            <div>
-                                <h2 className="sub-page-title chat-page-title" style={{fontSize: '1.4em', marginBottom: '5px'}}>
-                                    {activeTicket.subject || `Обращение #${activeTicket.id.substring(0,6)}`}
-                                </h2>
-                                <p style={{fontSize:'0.8em', color:'var(--subtle-text-color)', margin: '0 0 5px 0'}}>
-                                    Пользователь: {activeTicket.user_display_name || activeTicket.user_viht_id || 'N/A'} (ID: {activeTicket.user_id.substring(0,8)}...)
-                                </p>
-                                 <p style={{fontSize:'0.8em', color:'var(--subtle-text-color)', margin: '0'}}>
-                                    Статус: <strong>{activeTicket.status}</strong>
-                                </p>
-                            </div>
-                            <div className="chat-controls" style={{width: '100%', justifyContent: 'flex-start', marginTop: '5px', flexWrap: 'wrap'}}>
+                        <Paper square elevation={0} className="chat-header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: isMobile ? '8px 12px' : 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
+                            <Box sx={{display: 'flex', alignItems: 'center', overflow:'hidden', flexGrow:1}}>
+                                {isMobile && (
+                                    <IconButton
+                                        color="inherit"
+                                        aria-label="Открыть список тикетов"
+                                        edge="start"
+                                        onClick={() => setMobileSidebarOpen(true)}
+                                        className="mobile-chat-header-button"
+                                        sx={{ mr: 1 }}
+                                    >
+                                        <MenuIcon />
+                                    </IconButton>
+                                )}
+                                <Box sx={{overflow:'hidden', flexGrow:1}}>
+                                    <Typography variant={isMobile ? "subtitle1" : "h6"} component="h2" className="chat-page-title" noWrap title={activeTicket.subject || `Обращение...`} sx={{mb:0}}>
+                                        {activeTicket.subject || `Обращение #${activeTicket.id.substring(0,6)}`}
+                                    </Typography>
+                                    <Typography variant="caption" display="block" noWrap title={activeTicket.user_display_name || activeTicket.user_viht_id || 'N/A'}>
+                                        Пользователь: {activeTicket.user_display_name || activeTicket.user_viht_id || 'N/A'} (Статус: {activeTicket.status})
+                                    </Typography>
+                                </Box>
+                            </Box>
+                            <Box sx={{display: 'flex', alignItems:'center'}}>
                                 {activeTicket.status !== 'closed' && (
-                                    <button 
+                                    <Button 
                                         onClick={() => handleChangeTicketStatus(activeTicket.id, 'closed')} 
-                                        className="modal-button secondary" 
+                                        variant={isMobile ? "outlined" : "contained"}
+                                        size="small" 
+                                        color="secondary"
                                         disabled={isProcessing}
-                                        style={{padding: '6px 10px', fontSize: '0.85em'}}
+                                        sx={{textTransform: 'none', mr: isMobile ? 0 : 1, p: isMobile ? '4px 8px' : undefined }}
                                     >
-                                        Закрыть обращение
-                                    </button>
+                                        Закрыть
+                                    </Button>
                                 )}
-                                {activeTicket.status === 'closed' && (
-                                    <button 
-                                        onClick={() => handleChangeTicketStatus(activeTicket.id, 'pending_admin')} 
-                                        className="modal-button tertiary" 
-                                        disabled={isProcessing}
-                                        style={{padding: '6px 10px', fontSize: '0.85em'}}
-                                    >
-                                        Переоткрыть (Админ)
-                                    </button>
-                                )}
-                                 <button 
-                                    onClick={() => handleDeleteTicket(activeTicket.id)} 
-                                    className="modal-button tertiary" 
-                                    style={{backgroundColor: 'var(--error-color)', color: 'white', padding: '6px 10px', fontSize: '0.85em', marginLeft: 'auto'}}
-                                    disabled={isProcessing}
-                                >
-                                    Удалить тикет
-                                </button>
-                            </div>
-                        </header>
-                        <div className="chat-messages-container support-messages-container" role="log">
-                            {isLoadingMessages && <div className="loading-indicator"><div className="spinner"></div>Загрузка сообщений...</div>}
+                                 <IconButton onClick={() => handleDeleteTicket(activeTicket.id)} aria-label="Удалить тикет" disabled={isProcessing} size={isMobile ? "small" : "medium"}>
+                                    <DeleteIcon />
+                                </IconButton>
+                                {/* Add MoreVertIcon for other actions if needed on mobile */}
+                            </Box>
+                        </Paper>
+                        <Box className="chat-messages-container support-messages-container" role="log" sx={{flexGrow:1, overflowY: 'auto', p: isMobile ? '12px' : 2, bgcolor: 'background.default'}}>
+                            {isLoadingMessages && <Box sx={{textAlign:'center', p:2}}><CircularProgress size={24}/></Box>}
                             {messages.map(msg => (
                                 <div key={msg.id} className={`message-bubble-wrapper ${msg.sender_role}`}>
                                     <div className={`message-bubble ${msg.sender_role}`}>
@@ -362,21 +424,28 @@ export const AdminSupportChatsSection: React.FC<AdminSupportChatsSectionProps> =
                                 </div>
                             ))}
                             <div ref={messagesEndRef} />
-                        </div>
-                        {error && <p className="error-message chat-error">{error}</p>}
+                        </Box>
+                        {error && <Alert severity="error" sx={{m:1}}>{error}</Alert>}
                         {activeTicket.status !== 'closed' ? (
-                            <div className="chat-input-area support-input-area" role="form">
-                                <textarea value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Введите ваш ответ..." rows={1} disabled={isProcessing} aria-multiline="true" />
-                                <button onClick={handleSendMessage} disabled={isProcessing || !newMessage.trim()} className="chat-send-button chat-interactive-button" aria-label="Отправить">
-                                    <span className="send-button-icon">{isProcessing ? <div className="spinner small"></div> : '➤'}</span>
-                                </button>
-                            </div>
+                            <Paper square elevation={0} className="chat-input-area support-input-area" role="form" sx={{p: '10px 15px', borderTop: `1px solid ${theme.palette.divider}`, display:'flex', alignItems:'flex-end'}}>
+                                <TextField 
+                                    fullWidth multiline maxRows={4} variant="outlined"
+                                    value={newMessage} 
+                                    onChange={(e) => setNewMessage(e.target.value)} 
+                                    placeholder="Введите ваш ответ..." 
+                                    disabled={isProcessing} 
+                                    sx={{ mr: 1, '& .MuiOutlinedInput-root': { borderRadius: '22px', '& fieldset': {border: 'none'}, '&.Mui-focused fieldset': {border: theme=> `1px solid ${theme.palette.primary.main}`} }, input: {py: '12px'} }}
+                                />
+                                <IconButton color="primary" onClick={handleSendMessage} disabled={isProcessing || !newMessage.trim()} aria-label="Отправить" sx={{width: '48px', height: '48px'}}>
+                                     {isProcessing ? <CircularProgress size={24} color="inherit"/> : <SendIcon />}
+                                </IconButton>
+                            </Paper>
                         ) : (
-                            <p className="info-message chat-info ticket-closed-message" style={{textAlign: 'center'}}>Это обращение закрыто.</p>
+                            <Alert severity="info" sx={{m:1, textAlign: 'center', borderRadius: 'var(--border-radius)'}}>Это обращение закрыто.</Alert>
                         )}
                     </>
                 )}
-            </div>
-        </div>
+            </Box>
+        </Box>
     );
 };

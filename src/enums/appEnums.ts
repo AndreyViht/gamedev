@@ -6,6 +6,7 @@ export enum View {
   Dashboard = 'DASHBOARD',
   AIChatGuest = 'AI_CHAT_GUEST',
   AdminDashboard = 'ADMIN_DASHBOARD',
+  VersionHistory = 'VERSION_HISTORY', // Added
 }
 
 export enum DashboardSection {

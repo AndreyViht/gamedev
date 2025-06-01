@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import type { User, Session, AuthChangeEvent, AuthSubscription } from '@supabase/supabase-js';
+import type { User, Session, AuthChangeEvent, Subscription } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
 
 import { ThemeProvider, createTheme, CssBaseline, Box, Fab, CircularProgress, Typography, Alert as MuiAlert } from '@mui/material';
@@ -37,7 +37,8 @@ import { AdminAdvertisingSettingsSection } from './components/admin/advertising/
 import { AdminOnSiteAdManagementSection } from './components/admin/advertising/AdminOnSiteAdManagementSection'; 
 import { ToastNotification, ToastConfig } from './components/common/ToastNotification';
 import { PersonalizationModal } from './components/common/PersonalizationModal';
-import { LegalInfoModal } from './components/common/LegalInfoModal'; // Added
+import { LegalInfoModal } from './components/common/LegalInfoModal';
+import { VersionHistoryPage } from './components/common/VersionHistoryPage'; // Added
 
 
 const getRandomNews = (): NewsItem[] => {
@@ -121,7 +122,7 @@ export const App: React.FC = () => {
     })
   );
   const [isPersonalizationModalOpen, setIsPersonalizationModalOpen] = useState(false);
-  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false); // Added
+  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false); 
   
   const [dbNewsItems, setDbNewsItems] = useState<NewsItemDB[]>([]); 
   const [displayedNewsItems, setDisplayedNewsItems] = useState<NewsItem[]>([]);
@@ -134,8 +135,10 @@ export const App: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [guestAiRequestsMade, setGuestAiRequestsMade] = useState(() => getStoredJson<number>(LS_KEY_GUEST_AI_REQUESTS, 0, (v): v is number => typeof v === 'number'));
-  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
-  const [initialViewLogicApplied, setInitialViewLogicApplied] = useState(false);
+  
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false); // Controls visibility of main loading screen
+  const [initialViewLogicApplied, setInitialViewLogicApplied] = useState(false); // Ensures one-time view setup
+
   const [toasts, setToasts] = useState<ToastConfig[]>([]);
 
   const [isAdminSidebarCollapsed, setIsAdminSidebarCollapsed] = useState(false);
@@ -175,7 +178,7 @@ export const App: React.FC = () => {
       },
       MuiAppBar: {
         styleOverrides: {
-          root: ({ theme: currentMuiTheme }) => ({ // Ensure access to the full MuiTheme
+          root: ({ theme: currentMuiTheme }) => ({ 
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             backgroundColor: personalizationSettings.headerFill 
@@ -189,7 +192,7 @@ export const App: React.FC = () => {
       },
       MuiDrawer: {
          styleOverrides: {
-          paper: ({ theme: currentMuiTheme }) => ({ // Ensure access to the full MuiTheme
+          paper: ({ theme: currentMuiTheme }) => ({ 
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
              backgroundColor: personalizationSettings.sidebarFill
@@ -234,7 +237,7 @@ export const App: React.FC = () => {
         if (newsError) throw newsError;
         setDbNewsItems(newsData || []);
     } catch (error) { /* console.error("Error fetching news from Supabase:", error); */ }
-  }, []);
+  }, [supabase]);
 
   const fetchProjectsFromSupabase = useCallback(async () => {
     if (!supabase) { return; }
@@ -243,7 +246,7 @@ export const App: React.FC = () => {
         if (projectsError) throw projectsError;
         setDbProjects(projectsData || []);
     } catch (error) { /* console.error("Error fetching projects from Supabase:", error); */ }
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     const newsForLanding: NewsItem[] = dbNewsItems
@@ -287,7 +290,7 @@ export const App: React.FC = () => {
 
     let isAdminMatch = false;
     for (const adminCred of ADMIN_USERS) {
-        if (userToProcess.email?.toLowerCase() === adminCred.email.toLowerCase()) { // Case-insensitive
+        if (userToProcess.email === adminCred.email) {
             if (metadata.user_viht_id !== adminCred.viht_id) {
                 metadata.user_viht_id = adminCred.viht_id;
                 needsServerUpdate = true;
@@ -436,7 +439,17 @@ export const App: React.FC = () => {
   useEffect(() => { localStorage.setItem(LS_KEY_CURRENT_DASHBOARD_SECTION, JSON.stringify(currentDashboardSection)); }, [currentDashboardSection]);
   useEffect(() => { localStorage.setItem(LS_KEY_CURRENT_ADMIN_SECTION, JSON.stringify(currentAdminDashboardSection)); }, [currentAdminDashboardSection]);
 
+  const handleNavigation = useCallback((viewTarget: View) => {
+    if ((viewTarget === View.Dashboard || viewTarget === View.AdminDashboard) && !user) { setCurrentView(View.Login); return; }
+    if (viewTarget === View.AdminDashboard && !isUserAdmin(user)) { setCurrentView(View.Dashboard); return; } 
+    setCurrentView(viewTarget);
+    if (viewTarget === View.Dashboard) setCurrentDashboardSection(getStoredJson<DashboardSection>(LS_KEY_CURRENT_DASHBOARD_SECTION, DashboardSection.Account, (v): v is DashboardSection => Object.values(DashboardSection).includes(v as DashboardSection))); 
+    if (viewTarget === View.AdminDashboard) setCurrentAdminDashboardSection(getStoredJson<AdminDashboardSection>(LS_KEY_CURRENT_ADMIN_SECTION, AdminDashboardSection.AdminNews, (v): v is AdminDashboardSection => Object.values(AdminDashboardSection).includes(v as AdminDashboardSection))); 
+    if (viewTarget === View.Landing) setCurrentLandingSection(getStoredJson<LandingPageSection>(LS_KEY_CURRENT_LANDING_SECTION, 'news', (v): v is LandingPageSection => ['news', 'projects', 'about', 'order'].includes(v))); 
+  }, [user]);
 
+
+  // Effect for fetching initial data (news, projects) and session
   useEffect(() => {
     if (!supabase) { 
         setLoadingSession(false); 
@@ -446,7 +459,7 @@ export const App: React.FC = () => {
     fetchNewsFromSupabase(); 
     fetchProjectsFromSupabase();
 
-    let authListener: AuthSubscription | undefined;
+    let authListener: Subscription | undefined;
 
     const getActiveSessionAndSubscribe = async () => {
       setLoadingSession(true);
@@ -462,39 +475,9 @@ export const App: React.FC = () => {
         setUser(processedCurrentUser); 
         setSessionState(activeSession);
         
-        if (!initialViewLogicApplied) {
-            const visitedBefore = localStorage.getItem(LS_KEY_HAS_VISITED_BEFORE) === 'true';
-            if (processedCurrentUser) { 
-                if (!visitedBefore) localStorage.setItem(LS_KEY_HAS_VISITED_BEFORE, 'true');
-                // Logged in: if on auth page, redirect. Else, stay on loaded (localStorage) page.
-                if (currentView === View.Login || currentView === View.Register || currentView === View.AIChatGuest) {
-                    setCurrentView(View.Dashboard);
-                    setCurrentDashboardSection(getStoredJson<DashboardSection>(LS_KEY_CURRENT_DASHBOARD_SECTION, DashboardSection.Account, (v): v is DashboardSection => Object.values(DashboardSection).includes(v as DashboardSection)));
-                } else if (currentView === View.AdminDashboard && !isUserAdmin(processedCurrentUser)) {
-                     setCurrentView(View.Dashboard);
-                     setCurrentDashboardSection(getStoredJson<DashboardSection>(LS_KEY_CURRENT_DASHBOARD_SECTION, DashboardSection.Account, (v): v is DashboardSection => Object.values(DashboardSection).includes(v as DashboardSection)));
-                }
-            } else { // NOT logged in
-                // Always go to Landing/News on a fresh load if not logged in
-                setCurrentView(View.Landing);
-                setCurrentLandingSection('news');
-                if (!visitedBefore) localStorage.setItem(LS_KEY_HAS_VISITED_BEFORE, 'true');
-            }
-            setInitialViewLogicApplied(true);
-        }
-
       } catch (error) { 
           setUser(null); 
           setSessionState(null);
-          if (!initialViewLogicApplied) {
-             setCurrentView(View.Landing); // Default to landing/news on error during initial load
-             setCurrentLandingSection('news');
-             localStorage.setItem(LS_KEY_HAS_VISITED_BEFORE, 'true'); 
-             setInitialViewLogicApplied(true);
-          } else if (currentView === View.Dashboard || currentView === View.AdminDashboard) {
-             setCurrentView(View.Landing); // If already initialized but session error, go to landing from protected.
-             setCurrentLandingSection('news'); // Ensure it's news for logged out
-          }
       } finally { 
           setLoadingSession(false); 
           setInitialDataLoaded(true); 
@@ -514,36 +497,21 @@ export const App: React.FC = () => {
             setUser(processedAuthChangeUser); 
             setSessionState(newSession); 
             
-            if (processedAuthChangeUser) { 
-                if (event === 'SIGNED_IN') { 
-                    setCurrentView(View.Dashboard); 
-                    setCurrentDashboardSection(DashboardSection.Account); 
-                } else if (currentView === View.Login || currentView === View.Register || currentView === View.AIChatGuest) {
-                    setCurrentView(View.Dashboard);
-                    setCurrentDashboardSection(getStoredJson<DashboardSection>(LS_KEY_CURRENT_DASHBOARD_SECTION, DashboardSection.Account, (v): v is DashboardSection => Object.values(DashboardSection).includes(v as DashboardSection)));
-                }
-            } else { 
-              if (currentView === View.AdminDashboard || currentView === View.Dashboard) {
-                  setCurrentView(View.Landing);
-                  setCurrentLandingSection('news'); // Ensure news section for logged-out state
-              }
-              const lastUserId = sessionState?.user?.id; 
-              if (lastUserId) { 
-                  localStorage.removeItem(`gameDevFactory_chats_vk_style_${lastUserId}`); 
-                  localStorage.removeItem(`gameDevFactory_activeChatId_vk_style_${lastUserId}`); 
-              }
-              setGuestAiRequestsMade(getStoredJson<number>(LS_KEY_GUEST_AI_REQUESTS, 0, (v): v is number => typeof v === 'number'));
-            }
+            // Navigation logic moved to the second useEffect
             if (event === 'PASSWORD_RECOVERY') {
-                setCurrentView(View.Login); 
+                 setCurrentView(View.Login); // Use setCurrentView directly
                  showToast("Введите новый пароль или следуйте инструкциям, если вы запросили сброс.", "info");
+            } else if (event === 'SIGNED_OUT') {
+                const lastUserId = sessionState?.user?.id; 
+                if (lastUserId) { 
+                    localStorage.removeItem(`gameDevFactory_chats_vk_style_${lastUserId}`); 
+                    localStorage.removeItem(`gameDevFactory_activeChatId_vk_style_${lastUserId}`); 
+                }
+                setGuestAiRequestsMade(getStoredJson<number>(LS_KEY_GUEST_AI_REQUESTS, 0, (v): v is number => typeof v === 'number'));
             }
+
         } catch (error) {
             setUser(null); setSessionState(null);
-            if (currentView === View.AdminDashboard || currentView === View.Dashboard) {
-                setCurrentView(View.Landing);
-                setCurrentLandingSection('news');
-            }
         } finally { 
             setLoadingSession(false); 
         }
@@ -556,6 +524,30 @@ export const App: React.FC = () => {
   }, [fetchNewsFromSupabase, fetchProjectsFromSupabase, processUserSessionLogic, showToast, supabase]); 
 
 
+  // Effect for one-time initial view logic after session and data are loaded
+  useEffect(() => {
+    if (initialDataLoaded && !initialViewLogicApplied) {
+        const visitedBefore = localStorage.getItem(LS_KEY_HAS_VISITED_BEFORE) === 'true';
+        if (user) { 
+            if (!visitedBefore) localStorage.setItem(LS_KEY_HAS_VISITED_BEFORE, 'true');
+            
+            if (currentView === View.Login || currentView === View.Register || currentView === View.AIChatGuest || currentView === View.VersionHistory) {
+                handleNavigation(View.Dashboard);
+            } else if (currentView === View.AdminDashboard && !isUserAdmin(user)) {
+                 handleNavigation(View.Dashboard);
+            }
+        } else { 
+            const allowedGuestViews = [View.Landing, View.Login, View.Register, View.AIChatGuest, View.VersionHistory];
+            if (!allowedGuestViews.includes(currentView)) {
+                handleNavigation(View.Landing);
+            }
+            if (!visitedBefore) localStorage.setItem(LS_KEY_HAS_VISITED_BEFORE, 'true');
+        }
+        setInitialViewLogicApplied(true);
+    }
+  }, [initialDataLoaded, user, currentView, handleNavigation, initialViewLogicApplied]);
+
+
   useEffect(() => {
     let dynamicViewName = APP_NAME; 
     if (currentView === View.Landing) { 
@@ -564,7 +556,8 @@ export const App: React.FC = () => {
     } else {
       const viewTitles: Record<View, string> = {
         [View.Landing]: "Главная", [View.Login]: "Вход", [View.Register]: "Регистрация",
-        [View.Dashboard]: "Личный Кабинет", [View.AIChatGuest]: "AI Чат Гостя", [View.AdminDashboard]: "Админ-Панель"
+        [View.Dashboard]: "Личный Кабинет", [View.AIChatGuest]: "AI Чат Гостя", 
+        [View.AdminDashboard]: "Админ-Панель", [View.VersionHistory]: "История Версий"
       };
       dynamicViewName = viewTitles[currentView] || APP_NAME;
       if (currentView === View.Dashboard) {
@@ -587,15 +580,6 @@ export const App: React.FC = () => {
     document.title = `${APP_NAME} - ${dynamicViewName}`;
   }, [currentView, currentDashboardSection, currentAdminDashboardSection, currentLandingSection]);
 
-  const handleNavigation = useCallback((viewTarget: View) => {
-    if ((viewTarget === View.Dashboard || viewTarget === View.AdminDashboard) && !user) { setCurrentView(View.Login); return; }
-    if (viewTarget === View.AdminDashboard && !isUserAdmin(user)) { setCurrentView(View.Dashboard); return; } 
-    setCurrentView(viewTarget);
-    if (viewTarget === View.Dashboard) setCurrentDashboardSection(getStoredJson<DashboardSection>(LS_KEY_CURRENT_DASHBOARD_SECTION, DashboardSection.Account, (v): v is DashboardSection => Object.values(DashboardSection).includes(v as DashboardSection))); 
-    if (viewTarget === View.AdminDashboard) setCurrentAdminDashboardSection(getStoredJson<AdminDashboardSection>(LS_KEY_CURRENT_ADMIN_SECTION, AdminDashboardSection.AdminNews, (v): v is AdminDashboardSection => Object.values(AdminDashboardSection).includes(v as AdminDashboardSection))); 
-    if (viewTarget === View.Landing) setCurrentLandingSection(getStoredJson<LandingPageSection>(LS_KEY_CURRENT_LANDING_SECTION, 'news', (v): v is LandingPageSection => ['news', 'projects', 'about', 'order'].includes(v))); 
-  }, [user]);
-
   const handleDashboardSectionNavigation = (section: DashboardSection) => setCurrentDashboardSection(section);
   const handleAdminDashboardSectionNavigation = (section: AdminDashboardSection) => setCurrentAdminDashboardSection(section);
   const handleLandingSectionNavigation = (section: LandingPageSection) => setCurrentLandingSection(section);
@@ -604,6 +588,9 @@ export const App: React.FC = () => {
     if (!supabase) { showToast("Ошибка: Supabase не инициализирован.", "error"); return; }
     const { error: signOutError } = await supabase.auth.signOut();
     if (signOutError) { showToast(`Ошибка выхода: ${signOutError.message}`, "error");} 
+    else { // Explicitly navigate to landing on logout
+        handleNavigation(View.Landing);
+    }
   };
   
   const handleAiRequestMade = useCallback(async () => {
@@ -710,6 +697,8 @@ export const App: React.FC = () => {
             {currentAdminDashboardSection === AdminDashboardSection.AdminOnSiteAdManagement && <AdminOnSiteAdManagementSection currentUser={user} showToast={showToast} />}
           </AdminDashboardLayout>
         );
+      case View.VersionHistory:
+        return <VersionHistoryPage onNavigateBack={() => handleNavigation(View.Landing)} />;
       default:
         return <LandingPage news={displayedNewsItems.length > 0 ? displayedNewsItems : placeholderNewsItems} projects={displayedProjectItems.length > 0 ? displayedProjectItems : placeholderProjectItems} activeSection={currentLandingSection} onNavigateToSection={handleLandingSectionNavigation} onNavigate={handleNavigation}/>;
     }
@@ -732,7 +721,10 @@ export const App: React.FC = () => {
         <main className="main-content">
           {renderContent()}
         </main>
-        <AppFooter onOpenLegalModal={() => setIsLegalModalOpen(true)} />
+        <AppFooter 
+            onOpenLegalModal={() => setIsLegalModalOpen(true)} 
+            onNavigateToVersionHistory={() => handleNavigation(View.VersionHistory)}
+        />
       </Box>
       <Box className="toast-notification-container">
         {toasts.map(toast => (

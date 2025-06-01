@@ -82,7 +82,7 @@ export const AccountSection: React.FC<AccountSectionProps> = ({ user, onNavigate
     <Box className="account-section">
       <Typography variant="h5" component="h2" id="dashboard-content-title" className="sub-page-title" gutterBottom>Информация об аккаунте</Typography>
       <Grid container spacing={2.5} className="account-info-grid">
-        <Grid xs={12} md={6} lg={4}>
+        <Grid item={true} xs={12} md={6} lg={4}>
           <Paper className="account-info-card" sx={{p:2.5, height: '100%'}}>
             <Typography variant="h6" gutterBottom>Основная информация</Typography>
             <Typography><strong>Логин:</strong> {metadata.display_name || 'Не указан'}</Typography>
@@ -90,7 +90,7 @@ export const AccountSection: React.FC<AccountSectionProps> = ({ user, onNavigate
             <Typography><strong>ID Пользователя:</strong> <span className="client-key-display">{userVihtId}</span></Typography>
           </Paper>
         </Grid>
-        <Grid xs={12} md={6} lg={4}>
+        <Grid item={true} xs={12} md={6} lg={4}>
           <Paper className="account-info-card" sx={{p:2.5, height: '100%'}}>
             <Typography variant="h6" gutterBottom>Статус и Лимиты</Typography>
             <Typography><strong>Статус Премиум:</strong> {premiumStatusText}</Typography>
@@ -98,7 +98,7 @@ export const AccountSection: React.FC<AccountSectionProps> = ({ user, onNavigate
             <Typography><strong>Следующий сброс:</strong> {nextResetText}</Typography>
           </Paper>
         </Grid>
-        <Grid xs={12} md={6} lg={4}>
+        <Grid item={true} xs={12} md={6} lg={4}>
           <Paper className="account-info-card" sx={{p:2.5, height: '100%'}}>
             <Typography variant="h6" gutterBottom>Доступные AI Модели</Typography>
             <List dense sx={{py:0}}>
@@ -132,7 +132,7 @@ export const AccountSection: React.FC<AccountSectionProps> = ({ user, onNavigate
           </Paper>
         </Grid>
 
-        <Grid xs={12} md={6} lg={4}>
+        <Grid item={true} xs={12} md={6} lg={4}>
             <Paper className="account-info-card user-points-card" sx={{p:2.5, height: '100%', textAlign: 'center'}}>
                 <Typography variant="h6" gutterBottom>Баллы Активности</Typography>
                 <Typography className="points-display" sx={{fontSize: '2.8rem', fontWeight: 'bold', color: 'primary.main', my:1}}>{activityPoints.toLocaleString()} ✨</Typography>

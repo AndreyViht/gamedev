@@ -10,7 +10,7 @@ export const isUserAdmin = (user: UserProfile | null): boolean => {
     if (!user || !user.email || !user.user_metadata?.user_viht_id) return false;
     
     return ADMIN_USERS.some(admin => 
-        admin.email.toLowerCase() === user.email?.toLowerCase() && // Case-insensitive email check
+        admin.email === user.email && 
         admin.viht_id === user.user_metadata.user_viht_id
     );
 };

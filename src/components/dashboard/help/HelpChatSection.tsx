@@ -7,7 +7,15 @@ import { supabase } from '../../../api/clients';
 import { formatDate } from '../../../utils/helpers';
 import { APP_NAME } from '../../../config/constants';
 import { NameInputModal } from '../../common/NameInputModal'; 
-import { CodeBlock } from '../../common/CodeBlock'; // Import CodeBlock
+import { CodeBlock } from '../../common/CodeBlock'; 
+
+import { Box, TextField, Button, IconButton, Typography, Paper, List, ListItem, ListItemButton, ListItemText, CircularProgress, Alert, useMediaQuery, Fab, Drawer, Chip } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import SendIcon from '@mui/icons-material/Send';
+import MenuIcon from '@mui/icons-material/Menu';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import CloseIcon from '@mui/icons-material/Close';
+
 
 interface HelpChatSectionProps {
   user: UserProfile;
@@ -32,6 +40,10 @@ export const HelpChatSection: React.FC<HelpChatSectionProps> = ({ user, onUserPr
     const [error, setError] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
+    
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
 
     const fetchMyTickets = useCallback(async () => {
@@ -45,9 +57,6 @@ export const HelpChatSection: React.FC<HelpChatSectionProps> = ({ user, onUserPr
                 .order('last_message_at', { ascending: false, nullsFirst: false })
                 .order('created_at', { ascending: false });
             if (fetchError) throw fetchError;
-            
-            // Filter out very old closed tickets if they don't have a specific deletion timestamp
-            // For now, just sort, the "deleted in 1 hour" message will be shown for closed tickets.
             setTickets(data || []);
         } catch (err: any) { setError("Ошибка загрузки ваших обращений: " + err.message); }
         finally { setIsLoadingTickets(false); }
@@ -91,7 +100,10 @@ export const HelpChatSection: React.FC<HelpChatSectionProps> = ({ user, onUserPr
     
     useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-    const handleSelectTicket = (ticket: AdminSupportTicket) => setActiveTicket(ticket);
+    const handleSelectTicket = (ticket: AdminSupportTicket) => {
+        setActiveTicket(ticket);
+        if(isMobile) setMobileSidebarOpen(false);
+    };
 
     const handleOpenNewTicketModal = () => {
         setIsNewTicketModalOpen(true);
@@ -130,6 +142,7 @@ export const HelpChatSection: React.FC<HelpChatSectionProps> = ({ user, onUserPr
                     support_tickets_created: newSupportTicketsCreated
                 });
             }
+            if(isMobile) setMobileSidebarOpen(false);
         } catch (err: any) { 
             setError("Ошибка создания тикета: " + err.message); 
             showToast("Ошибка создания тикета: " + err.message, 'error');
@@ -186,9 +199,69 @@ export const HelpChatSection: React.FC<HelpChatSectionProps> = ({ user, onUserPr
         finally { setIsSending(false); }
     };
 
+    const ticketsSidebarContent = (
+      <Box 
+          className="chat-sessions-sidebar support-tickets-sidebar"
+          sx={{
+              width: isMobile ? '100%' : 'var(--help-chat-sidebar-width)',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              borderRight: isMobile ? 'none' : `1px solid ${theme.palette.divider}`,
+              bgcolor: 'background.paper'
+          }}
+      >
+          <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: '15px 18px 10px 18px', borderBottom: `1px solid ${theme.palette.divider}`}}>
+              <Typography variant="h6" component="h3">Ваши обращения</Typography>
+              {isMobile && <IconButton onClick={() => setMobileSidebarOpen(false)}><CloseIcon /></IconButton>}
+          </Box>
+          <Button 
+              onClick={handleOpenNewTicketModal} 
+              className="new-chat-button" 
+              startIcon={<AddCircleOutlineIcon />}
+              sx={{ m: '15px', textTransform: 'none' }}
+              disabled={isSending || isLoadingTickets}
+          >
+              Новое обращение
+          </Button>
+          {isLoadingTickets && <Box sx={{p:2, textAlign:'center'}}><CircularProgress size={24} /><Typography variant="caption" display="block">Загрузка...</Typography></Box>}
+          {error && !isLoadingTickets && tickets.length === 0 && <Alert severity="error" sx={{m:1}}>{error}</Alert>}
+          {!isLoadingTickets && tickets.length === 0 && <Typography sx={{p:2, textAlign:'center'}}>У вас пока нет обращений.</Typography>}
+          <List className="chat-sessions-list" sx={{flexGrow: 1, overflowY: 'auto', p:1}}>
+              {tickets.map(ticket => (
+                  <ListItem key={ticket.id} disablePadding sx={{mb: 0.5}}>
+                      <ListItemButton 
+                          className="chat-session-button" 
+                          onClick={() => handleSelectTicket(ticket)} 
+                          selected={activeTicket?.id === ticket.id}
+                          title={ticket.subject || `Тикет #${ticket.id.substring(0,8)}`}
+                          sx={{
+                            borderRadius: 'var(--border-radius-small)',
+                            '&.Mui-selected': {bgcolor: 'action.selected'},
+                            flexDirection: 'column', alignItems: 'flex-start'
+                          }}
+                      >
+                          <Box sx={{display:'flex', alignItems:'center', width:'100%'}}>
+                            <span className={`ticket-status-indicator ${ticket.status}`} style={{marginRight: '8px'}}></span>
+                            <ListItemText 
+                                primary={ticket.subject || `Обращение #${ticket.id.substring(0,8)}...`} 
+                                secondary={formatDate(ticket.last_message_at || ticket.created_at, true)} 
+                                primaryTypographyProps={{fontWeight: 500, noWrap: true}}
+                                secondaryTypographyProps={{fontSize: '0.8em'}}
+                                sx={{flexGrow:1, mr:1}}
+                            />
+                            {ticket.user_has_unread && <Chip label="!" color="warning" size="small" sx={{ml:'auto', height: '18px', fontSize: '0.7rem'}} title="Новый ответ"/>}
+                          </Box>
+                      </ListItemButton>
+                  </ListItem>
+              ))}
+          </List>
+      </Box>
+    );
+
 
     return (
-        <div className="help-chat-section vk-style"> {/* Ensure vk-style is applied for layout */}
+        <Box className="help-chat-section vk-style" sx={{ display: 'flex', height: '100%', position: 'relative', overflow: isMobile ? 'hidden' : 'visible' }}>
             <NameInputModal
                 isOpen={isNewTicketModalOpen}
                 onClose={() => setIsNewTicketModalOpen(false)}
@@ -198,51 +271,72 @@ export const HelpChatSection: React.FC<HelpChatSectionProps> = ({ user, onUserPr
                 placeholder="Кратко опишите вашу проблему"
                 isLoading={isSending}
             />
-            <aside className="chat-sessions-sidebar support-tickets-sidebar">
-                <h3>Ваши обращения</h3>
-                <button onClick={handleOpenNewTicketModal} className="new-chat-button chat-interactive-button" disabled={isSending || isLoadingTickets}>
-                    + Новое обращение
-                </button>
-                {isLoadingTickets && <div className="loading-indicator small" style={{padding: '10px'}}><div className="spinner"></div>Загрузка...</div>}
-                {error && !isLoadingTickets && tickets.length === 0 && <p className="error-message" style={{padding: '10px'}}>{error}</p>}
-                {!isLoadingTickets && tickets.length === 0 && <p style={{padding: '10px'}}>У вас пока нет обращений.</p>}
-                <ul className="chat-sessions-list">
-                    {tickets.map(ticket => (
-                        <li key={ticket.id} className={activeTicket?.id === ticket.id ? 'active' : ''}>
-                            <button className="chat-session-button chat-interactive-button" onClick={() => handleSelectTicket(ticket)} title={ticket.subject || `Тикет #${ticket.id.substring(0,8)}`}>
-                                <span className={`ticket-status-indicator ${ticket.status}`}></span>
-                                <span className="ticket-subject">{ticket.subject || `Обращение #${ticket.id.substring(0,8)}...`}</span>
-                                <span className="ticket-date">{formatDate(ticket.last_message_at || ticket.created_at, true)}</span>
-                                {ticket.user_has_unread && <span className="unread-indicator user-unread" title="Новый ответ от администратора">!</span>}
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            </aside>
+            {isMobile ? (
+                <Drawer
+                    anchor="left"
+                    open={mobileSidebarOpen}
+                    onClose={() => setMobileSidebarOpen(false)}
+                    variant="temporary"
+                    ModalProps={{ keepMounted: true }}
+                    PaperProps={{ sx: { width: '80%', maxWidth: '320px' } }}
+                >
+                    {ticketsSidebarContent}
+                </Drawer>
+            ) : (
+                ticketsSidebarContent
+            )}
 
-            <div className="chat-main-area support-chat-main-area">
+            <Box className="chat-main-area support-chat-main-area" sx={{flexGrow: 1, display: 'flex', flexDirection: 'column'}}>
                 {!activeTicket && !isLoadingTickets && (
-                    <div className="no-active-ticket-placeholder">
-                        <h2>Центр Помощи {APP_NAME}</h2>
-                        <p>Выберите обращение из списка слева или создайте новое.</p>
-                        <p>Мы постараемся ответить вам как можно скорее!</p>
-                         {error && <p className="error-message">{error}</p>}
-                    </div>
+                    <Box className="no-active-ticket-placeholder" sx={{textAlign: 'center', p: {xs:2, sm:5}, m:'auto'}}>
+                        <Typography variant={isMobile ? "h6" : "h5"} component="h2" gutterBottom>Центр Помощи {APP_NAME}</Typography>
+                        <Typography>Выберите обращение из списка {isMobile ? ' (нажмите ☰)' : 'слева'} или создайте новое.</Typography>
+                        <Typography>Мы постараемся ответить вам как можно скорее!</Typography>
+                         {error && <Alert severity="error" sx={{mt:2}}>{error}</Alert>}
+                          {isMobile && (
+                            <Button
+                                variant="contained"
+                                startIcon={<MenuIcon />}
+                                onClick={() => setMobileSidebarOpen(true)}
+                                sx={{ mt: 2 }}
+                            >
+                                Мои обращения
+                            </Button>
+                        )}
+                    </Box>
                 )}
                 {activeTicket && (
                     <>
-                        <header className="chat-header">
-                            <h2 className="sub-page-title chat-page-title">
-                                {activeTicket.subject || `Обращение #${activeTicket.id.substring(0,8)}...`} (Статус: {activeTicket.status})
-                            </h2>
-                        </header>
-                        <div className="chat-messages-container support-messages-container" role="log">
+                        <Paper square elevation={0} className="chat-header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: isMobile ? '8px 12px' : 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
+                            <Box sx={{display: 'flex', alignItems: 'center', overflow:'hidden'}}>
+                                {isMobile && (
+                                    <IconButton
+                                        color="inherit"
+                                        aria-label="Открыть список тикетов"
+                                        edge="start"
+                                        onClick={() => setMobileSidebarOpen(true)}
+                                        className="mobile-chat-header-button"
+                                        sx={{ mr: 1 }}
+                                    >
+                                        <MenuIcon />
+                                    </IconButton>
+                                )}
+                                <Box sx={{overflow:'hidden'}}>
+                                    <Typography variant={isMobile ? "subtitle1" : "h6"} component="h2" className="chat-page-title" noWrap title={activeTicket.subject || `Обращение...`}>
+                                        {activeTicket.subject || `Обращение #${activeTicket.id.substring(0,8)}...`}
+                                    </Typography>
+                                    {!isMobile && <Typography variant="caption">Статус: {activeTicket.status}</Typography>}
+                                </Box>
+                            </Box>
+                             {/* Mobile could have a "..." menu for actions */}
+                        </Paper>
+                        <Box className="chat-messages-container support-messages-container" role="log" sx={{flexGrow:1, overflowY: 'auto', p: isMobile ? '12px' : 2, bgcolor: 'background.default'}}>
                              {activeTicket.status === 'closed' && (
-                                <p className="ticket-closed-message">
+                                <Alert severity="info" sx={{m:1, borderRadius:'var(--border-radius)'}}>
                                     Это обращение закрыто. Если у вас остались вопросы, пожалуйста, создайте новое обращение.
-                                </p>
+                                </Alert>
                             )}
-                            {isLoadingMessages && <div className="loading-indicator"><div className="spinner"></div>Загрузка сообщений...</div>}
+                            {isLoadingMessages && <Box sx={{textAlign:'center', p:2}}><CircularProgress size={24}/></Box>}
                             {messages.map(msg => (
                                 <div key={msg.id} className={`message-bubble-wrapper ${msg.sender_role}`}>
                                     <div className={`message-bubble ${msg.sender_role}`}>
@@ -269,19 +363,26 @@ export const HelpChatSection: React.FC<HelpChatSectionProps> = ({ user, onUserPr
                                 </div>
                             ))}
                             <div ref={messagesEndRef} />
-                        </div>
-                        {error && <p className="error-message chat-error">{error}</p>}
+                        </Box>
+                        {error && <Alert severity="error" sx={{m:1}}>{error}</Alert>}
                         {activeTicket.status !== 'closed' && (
-                            <div className="chat-input-area support-input-area" role="form">
-                                <textarea value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Введите ваше сообщение..." rows={1} disabled={isSending} aria-multiline="true" />
-                                <button onClick={handleSendMessage} disabled={isSending || !newMessage.trim()} className="chat-send-button chat-interactive-button" aria-label="Отправить">
-                                    <span className="send-button-icon">{isSending ? <div className="spinner small"></div> : '➤'}</span>
-                                </button>
-                            </div>
+                            <Paper square elevation={0} className="chat-input-area support-input-area" role="form" sx={{p: '10px 15px', borderTop: `1px solid ${theme.palette.divider}`, display:'flex', alignItems:'flex-end'}}>
+                                <TextField 
+                                    fullWidth multiline maxRows={4} variant="outlined"
+                                    value={newMessage} 
+                                    onChange={(e) => setNewMessage(e.target.value)} 
+                                    placeholder="Введите ваше сообщение..." 
+                                    disabled={isSending} 
+                                    sx={{ mr: 1, '& .MuiOutlinedInput-root': { borderRadius: '22px', '& fieldset': {border: 'none'}, '&.Mui-focused fieldset': {border: theme=> `1px solid ${theme.palette.primary.main}`} }, input: {py: '12px'} }}
+                                />
+                                <IconButton color="primary" onClick={handleSendMessage} disabled={isSending || !newMessage.trim()} aria-label="Отправить" sx={{width: '48px', height: '48px'}}>
+                                    {isSending ? <CircularProgress size={24} color="inherit"/> : <SendIcon />}
+                                </IconButton>
+                            </Paper>
                         )}
                     </>
                 )}
-            </div>
-        </div>
+            </Box>
+        </Box>
     );
 };

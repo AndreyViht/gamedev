@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { UserProfile, SearchedUserAdminView } from '../../../types';
 import { supabase } from '../../../api/clients';
@@ -29,20 +28,13 @@ export const AdminUsersSection: React.FC<AdminUsersSectionProps> = ({ currentUse
     const fetchUserByVihtId_admin_rpc = async (vihtIdToSearch: string): Promise<SearchedUserAdminView | null> => {
         if (!supabase) throw new Error("Клиент Supabase не инициализирован.");
         try {
-            // Эта функция вызывает Edge Function 'get-user-by-viht-id'
-            const { data: rpcResponse, error: rpcError } = await supabase.functions.invoke('get-user-by-viht-id', {
-                body: { viht_id_to_search: vihtIdToSearch }
-            });
-
+            const { data: rpcResponse, error: rpcError } = await supabase.rpc('admin_get_user_by_viht_id', { p_viht_id_to_search: vihtIdToSearch });
             if (rpcError) {
-                throw new Error(rpcError.message || "Ошибка вызова Edge Function 'get-user-by-viht-id'.");
+                if (rpcError.message.includes("ACCESS_DENIED")) throw new Error("Доступ запрещен. Убедитесь, что вы вошли как администратор.");
+                throw new Error(rpcError.message || "Ошибка RPC при поиске пользователя.");
             }
-            if (rpcResponse.error) { // Если сама Edge Function вернула ошибку в своем теле JSON
-                 throw new Error(rpcResponse.error);
-            }
-            // Предполагаем, что Edge Function возвращает null если пользователь не найден, или объект пользователя
             return rpcResponse as SearchedUserAdminView | null;
-        } catch (e: any) { showToast(e.message || "Клиентская ошибка при вызове функции поиска пользователя.", 'error'); throw e; }
+        } catch (e: any) { showToast(e.message || "Клиентская ошибка при вызове RPC функции поиска.", 'error'); throw e; }
     };
     
     const updateUserMetadata_admin_rpc = async (userIdToUpdate: string, metadataUpdates: Partial<UserProfile['user_metadata']> ): Promise<boolean> => {
@@ -54,12 +46,12 @@ export const AdminUsersSection: React.FC<AdminUsersSectionProps> = ({ currentUse
             const finalMetadataToSend = { ...existingMetadata, ...metadataUpdates };
             const { data: rpcSuccess, error: rpcError } = await supabase.rpc('admin_update_user_metadata', { p_user_id_to_update: userIdToUpdate, p_metadata_updates: finalMetadataToSend });
             if (rpcError) {
-                 if (rpcError.message.includes("ACCESS_DENIED")) throw new Error("Доступ запрещен (обновление). Убедитесь, что вы вошли как администратор и SQL RPC функция admin_update_user_metadata настроена верно для проверки всех администраторов.");
+                 if (rpcError.message.includes("ACCESS_DENIED")) throw new Error("Доступ запрещен (обновление). Убедитесь, что вы вошли как администратор.");
                  else if (rpcError.message.includes("USER_NOT_FOUND")) throw new Error(`Пользователь с ID ${userIdToUpdate} не найден для обновления.`);
-                 throw new Error(rpcError.message || "Ошибка SQL RPC 'admin_update_user_metadata' при обновлении метаданных пользователя.");
+                 throw new Error(rpcError.message || "Ошибка RPC при обновлении метаданных пользователя.");
             }
             return rpcSuccess === true;
-        } catch (e: any) { showToast(e.message || "Клиентская ошибка при вызове функции обновления метаданных.", 'error'); return false; }
+        } catch (e: any) { showToast(e.message || "Клиентская ошибка при вызове RPC функции обновления.", 'error'); return false; }
     };
 
     const handleSearchUser = async (e: React.FormEvent) => {
@@ -196,10 +188,10 @@ export const AdminUsersSection: React.FC<AdminUsersSectionProps> = ({ currentUse
             <Alert severity="info" sx={{mb: 2, borderRadius: 'var(--border-radius)'}}>
               <Typography variant="body2"><strong>Примечание для Администратора:</strong></Typography>
               <Typography variant="caption" component="ul" sx={{pl: 2, listStyleType: 'disc'}}>
-                <li>Для поиска пользователя используется Edge Function `get-user-by-viht-id`. Убедитесь, что для неё установлена переменная окружения `ADMIN_USERS_JSON` (JSON-массив объектов администраторов `{email, viht_id}`).</li>
-                <li>Для обновления метаданных (премиум, баллы) используется SQL RPC функция `admin_update_user_metadata`.</li>
-                <li>**Обе эти функции (Edge и SQL RPC) должны корректно проверять права администратора, используя актуальный список администраторов.**</li>
-                <li>При добавлении нового администратора через модальное окно: после успешного назначения Viht ID, **необходимо вручную обновить массив `ADMIN_USERS` в файле `src/config/constants.ts` И переменную окружения `ADMIN_USERS_JSON` для Edge Function, И логику проверки админов в ваших SQL RPC функциях**, затем перезапустить приложение.</li>
+                <li>Для поиска и управления пользователями используются SQL-функции (`admin_get_user_by_viht_id` и `admin_update_user_metadata`).</li>
+                <li>Убедитесь, что SQL-функции корректно созданы в Supabase SQL Editor (с `SECURITY DEFINER` и `GRANT EXECUTE ... TO authenticated`).</li>
+                <li>SQL-функции проверяют, является ли вызывающий администратором.</li>
+                <li>**Добавление нового администратора:** После использования кнопки "Добавить Админ" и успешного назначения Viht ID, необходимо **вручную обновить массив `ADMIN_USERS` в файле `src/config/constants.ts`**, добавив email и Viht ID нового администратора, а затем **пересобрать и перезапустить приложение**.</li>
               </Typography>
             </Alert>
 
@@ -209,14 +201,14 @@ export const AdminUsersSection: React.FC<AdminUsersSectionProps> = ({ currentUse
                 <Paper sx={{ p: 3, mt: 2, borderRadius: 'var(--border-radius-large)' }}>
                     <Typography variant="h6" gutterBottom>Информация о пользователе</Typography>
                     <Grid container spacing={1.5}>
-                        <Grid item xs={12} sm={6}><Typography variant="body2"><strong>Логин:</strong> {metadata.display_name || 'N/A'}</Typography></Grid>
-                        <Grid item xs={12} sm={6}><Typography variant="body2"><strong>Email:</strong> {searchedUser.email || 'N/A'}</Typography></Grid>
-                        <Grid item xs={12} sm={6}><Typography variant="body2"><strong>ID (viht):</strong> {metadata.user_viht_id || 'N/A'}</Typography></Grid>
-                        <Grid item xs={12} sm={6}><Typography variant="body2"><strong>Supabase ID:</strong> {searchedUser.id || 'N/A'}</Typography></Grid>
-                        <Grid item xs={12} sm={6}><Typography variant="body2"><strong>Премиум:</strong> {metadata.is_premium ? `Да (до ${formatDate(metadata.premium_expires_at)})` : 'Нет'}</Typography></Grid>
-                        <Grid item xs={12} sm={6}><Typography variant="body2"><strong>AI Запросы:</strong> {metadata.ai_requests_made ?? 0} / {metadata.ai_requests_limit ?? (metadata.is_premium ? PREMIUM_USER_AI_REQUEST_LIMIT : USER_AI_REQUEST_LIMIT)}</Typography></Grid>
-                        <Grid item xs={12} sm={6}><Typography variant="body2"><strong>Сброс запросов:</strong> {nextReset ? formatDate(nextReset) : 'N/A'}</Typography></Grid>
-                        <Grid item xs={12} sm={6}><Typography variant="body2"><strong>Баллы Активности:</strong> {metadata.activity_points || 0} ✨</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>Логин:</strong> {metadata.display_name || 'N/A'}</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>Email:</strong> {searchedUser.email || 'N/A'}</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>ID (viht):</strong> {metadata.user_viht_id || 'N/A'}</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>Supabase ID:</strong> {searchedUser.id || 'N/A'}</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>Премиум:</strong> {metadata.is_premium ? `Да (до ${formatDate(metadata.premium_expires_at)})` : 'Нет'}</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>AI Запросы:</strong> {metadata.ai_requests_made ?? 0} / {metadata.ai_requests_limit ?? (metadata.is_premium ? PREMIUM_USER_AI_REQUEST_LIMIT : USER_AI_REQUEST_LIMIT)}</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>Сброс запросов:</strong> {nextReset ? formatDate(nextReset) : 'N/A'}</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>Баллы Активности:</strong> {metadata.activity_points || 0} ✨</Typography></Grid>
                     </Grid>
                     
                     <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start' }}>
@@ -245,20 +237,16 @@ export const AdminUsersSection: React.FC<AdminUsersSectionProps> = ({ currentUse
                     </Box>
                 </Paper>
             )}
-            {isPointsModalOpen && searchedUser && (() => {
-                const userNameDisplay = searchedUser.user_metadata.display_name || searchedUser.email || 'Пользователь';
-                const currentActivityPoints = searchedUser.user_metadata.activity_points || 0;
-                return (
-                    <PointsInputModal
-                        isOpen={isPointsModalOpen}
-                        onClose={() => setIsPointsModalOpen(false)}
-                        onSave={handleSavePoints}
-                        userName={userNameDisplay}
-                        currentPoints={currentActivityPoints}
-                        isLoading={isUpdatingPoints}
-                    />
-                );
-            })()}
+            {isPointsModalOpen && searchedUser && (
+                <PointsInputModal
+                    isOpen={isPointsModalOpen}
+                    onClose={() => setIsPointsModalOpen(false)}
+                    onSave={handleSavePoints}
+                    userName={searchedUser.user_metadata.display_name || searchedUser.email || 'Пользователь'}
+                    currentPoints={searchedUser.user_metadata.activity_points || 0}
+                    isLoading={isUpdatingPoints}
+                />
+            )}
             <AddAdminModal
                 isOpen={isAddAdminModalOpen}
                 onClose={() => setIsAddAdminModalOpen(false)}
