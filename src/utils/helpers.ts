@@ -1,14 +1,18 @@
 
 import { UserProfile } from '../types';
-import { ADMIN_USER_VIHT_ID, ADMIN_USER_EMAIL, REQUEST_RESET_INTERVAL_DAYS } from '../config/constants';
+import { ADMIN_USERS, REQUEST_RESET_INTERVAL_DAYS } from '../config/constants';
 
 export const generateVihtId = (): string => `viht-${Math.random().toString(36).substring(2, 10).padEnd(8, '0')}${Math.random().toString(36).substring(2, 8).padEnd(6, '0')}`;
 export const generateClientKey = (): string => `ckey-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
 export const generateClientSideId = (): string => `csid-${Math.random().toString(36).substring(2, 11)}`;
 
 export const isUserAdmin = (user: UserProfile | null): boolean => {
-    if (!user) return false;
-    return user.user_metadata?.user_viht_id === ADMIN_USER_VIHT_ID && user.email === ADMIN_USER_EMAIL;
+    if (!user || !user.email || !user.user_metadata?.user_viht_id) return false;
+    
+    return ADMIN_USERS.some(admin => 
+        admin.email === user.email && 
+        admin.viht_id === user.user_metadata.user_viht_id
+    );
 };
 
 export const formatDate = (dateString?: string | Date | null, includeTime: boolean = false): string => {

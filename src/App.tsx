@@ -10,7 +10,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import { supabase, genAI } from './api/clients';
 import { View, DashboardSection, AdminDashboardSection } from './enums/appEnums';
 import { Theme, LandingPageSection, NewsItem, ProjectItem, NewsItemDB, ProjectItemDB, UserProfile, PersonalizationSettings } from './types';
-import { APP_NAME, GUEST_AI_REQUEST_LIMIT, USER_AI_REQUEST_LIMIT, PREMIUM_USER_AI_REQUEST_LIMIT, REQUEST_RESET_INTERVAL_DAYS, ADMIN_USER_EMAIL, ADMIN_USER_VIHT_ID } from './config/constants';
+import { APP_NAME, GUEST_AI_REQUEST_LIMIT, USER_AI_REQUEST_LIMIT, PREMIUM_USER_AI_REQUEST_LIMIT, REQUEST_RESET_INTERVAL_DAYS, ADMIN_USERS } from './config/constants';
 import { achievementsList, Achievement } from './config/achievements'; 
 import { dailyTasksList, DailyTaskDefinition } from './config/dailyTasks'; 
 import { generateVihtId, generateClientKey, isUserAdmin, calculateNextResetDate, generateClientSideId } from './utils/helpers';
@@ -285,11 +285,22 @@ export const App: React.FC = () => {
     const now = new Date();
     const todayDateString = now.toISOString().split('T')[0];
 
-    if (userToProcess.email === ADMIN_USER_EMAIL) {
-        if (metadata.user_viht_id !== ADMIN_USER_VIHT_ID) { metadata.user_viht_id = ADMIN_USER_VIHT_ID; needsServerUpdate = true; }
-    } else { 
-        if (!metadata.user_viht_id) { metadata.user_viht_id = generateVihtId(); needsServerUpdate = true; }
+    let isAdminMatch = false;
+    for (const adminCred of ADMIN_USERS) {
+        if (userToProcess.email === adminCred.email) {
+            if (metadata.user_viht_id !== adminCred.viht_id) {
+                metadata.user_viht_id = adminCred.viht_id;
+                needsServerUpdate = true;
+            }
+            isAdminMatch = true;
+            break; 
+        }
     }
+    if (!isAdminMatch && !metadata.user_viht_id) {
+        metadata.user_viht_id = generateVihtId();
+        needsServerUpdate = true;
+    }
+    
     if (!metadata.client_key) { metadata.client_key = generateClientKey(); needsServerUpdate = true; }
     if (!metadata.display_name) { metadata.display_name = userToProcess.email?.split('@')[0] || "Пользователь"; needsServerUpdate = true; }
     
