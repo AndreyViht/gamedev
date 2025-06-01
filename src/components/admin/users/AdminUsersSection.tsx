@@ -29,13 +29,20 @@ export const AdminUsersSection: React.FC<AdminUsersSectionProps> = ({ currentUse
     const fetchUserByVihtId_admin_rpc = async (vihtIdToSearch: string): Promise<SearchedUserAdminView | null> => {
         if (!supabase) throw new Error("Клиент Supabase не инициализирован.");
         try {
-            const { data: rpcResponse, error: rpcError } = await supabase.rpc('admin_get_user_by_viht_id', { p_viht_id_to_search: vihtIdToSearch });
+            // Эта функция вызывает Edge Function 'get-user-by-viht-id'
+            const { data: rpcResponse, error: rpcError } = await supabase.functions.invoke('get-user-by-viht-id', {
+                body: { viht_id_to_search: vihtIdToSearch }
+            });
+
             if (rpcError) {
-                if (rpcError.message.includes("ACCESS_DENIED")) throw new Error("Доступ запрещен. Убедитесь, что вы вошли как администратор.");
-                throw new Error(rpcError.message || "Ошибка RPC при поиске пользователя.");
+                throw new Error(rpcError.message || "Ошибка вызова Edge Function 'get-user-by-viht-id'.");
             }
+            if (rpcResponse.error) { // Если сама Edge Function вернула ошибку в своем теле JSON
+                 throw new Error(rpcResponse.error);
+            }
+            // Предполагаем, что Edge Function возвращает null если пользователь не найден, или объект пользователя
             return rpcResponse as SearchedUserAdminView | null;
-        } catch (e: any) { showToast(e.message || "Клиентская ошибка при вызове RPC функции поиска.", 'error'); throw e; }
+        } catch (e: any) { showToast(e.message || "Клиентская ошибка при вызове функции поиска пользователя.", 'error'); throw e; }
     };
     
     const updateUserMetadata_admin_rpc = async (userIdToUpdate: string, metadataUpdates: Partial<UserProfile['user_metadata']> ): Promise<boolean> => {
@@ -47,12 +54,12 @@ export const AdminUsersSection: React.FC<AdminUsersSectionProps> = ({ currentUse
             const finalMetadataToSend = { ...existingMetadata, ...metadataUpdates };
             const { data: rpcSuccess, error: rpcError } = await supabase.rpc('admin_update_user_metadata', { p_user_id_to_update: userIdToUpdate, p_metadata_updates: finalMetadataToSend });
             if (rpcError) {
-                 if (rpcError.message.includes("ACCESS_DENIED")) throw new Error("Доступ запрещен (обновление). Убедитесь, что вы вошли как администратор.");
+                 if (rpcError.message.includes("ACCESS_DENIED")) throw new Error("Доступ запрещен (обновление). Убедитесь, что вы вошли как администратор и SQL RPC функция admin_update_user_metadata настроена верно для проверки всех администраторов.");
                  else if (rpcError.message.includes("USER_NOT_FOUND")) throw new Error(`Пользователь с ID ${userIdToUpdate} не найден для обновления.`);
-                 throw new Error(rpcError.message || "Ошибка RPC при обновлении метаданных пользователя.");
+                 throw new Error(rpcError.message || "Ошибка SQL RPC 'admin_update_user_metadata' при обновлении метаданных пользователя.");
             }
             return rpcSuccess === true;
-        } catch (e: any) { showToast(e.message || "Клиентская ошибка при вызове RPC функции обновления.", 'error'); return false; }
+        } catch (e: any) { showToast(e.message || "Клиентская ошибка при вызове функции обновления метаданных.", 'error'); return false; }
     };
 
     const handleSearchUser = async (e: React.FormEvent) => {
@@ -189,10 +196,10 @@ export const AdminUsersSection: React.FC<AdminUsersSectionProps> = ({ currentUse
             <Alert severity="info" sx={{mb: 2, borderRadius: 'var(--border-radius)'}}>
               <Typography variant="body2"><strong>Примечание для Администратора:</strong></Typography>
               <Typography variant="caption" component="ul" sx={{pl: 2, listStyleType: 'disc'}}>
-                <li>Для поиска и управления пользователями используются SQL-функции (`admin_get_user_by_viht_id` и `admin_update_user_metadata`).</li>
-                <li>Убедитесь, что SQL-функции корректно созданы в Supabase SQL Editor (с `SECURITY DEFINER` и `GRANT EXECUTE ... TO authenticated`).</li>
-                <li>SQL-функции проверяют, является ли вызывающий администратором.</li>
-                <li>**Добавление нового администратора:** После использования кнопки "Добавить Админ" и успешного назначения Viht ID, необходимо **вручную обновить массив `ADMIN_USERS` в файле `src/config/constants.ts`**, добавив email и Viht ID нового администратора, а затем **пересобрать и перезапустить приложение**.</li>
+                <li>Для поиска пользователя используется Edge Function `get-user-by-viht-id`. Убедитесь, что для неё установлена переменная окружения `ADMIN_USERS_JSON` (JSON-массив объектов администраторов `{email, viht_id}`).</li>
+                <li>Для обновления метаданных (премиум, баллы) используется SQL RPC функция `admin_update_user_metadata`.</li>
+                <li>**Обе эти функции (Edge и SQL RPC) должны корректно проверять права администратора, используя актуальный список администраторов.**</li>
+                <li>При добавлении нового администратора через модальное окно: после успешного назначения Viht ID, **необходимо вручную обновить массив `ADMIN_USERS` в файле `src/config/constants.ts` И переменную окружения `ADMIN_USERS_JSON` для Edge Function, И логику проверки админов в ваших SQL RPC функциях**, затем перезапустить приложение.</li>
               </Typography>
             </Alert>
 
