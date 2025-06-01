@@ -245,16 +245,20 @@ export const AdminUsersSection: React.FC<AdminUsersSectionProps> = ({ currentUse
                     </Box>
                 </Paper>
             )}
-            {isPointsModalOpen && searchedUser && (
-                <PointsInputModal
-                    isOpen={isPointsModalOpen}
-                    onClose={() => setIsPointsModalOpen(false)}
-                    onSave={handleSavePoints}
-                    userName={searchedUser.user_metadata.display_name || searchedUser.email || 'Пользователь'}
-                    currentPoints={searchedUser.user_metadata.activity_points || 0}
-                    isLoading={isUpdatingPoints}
-                />
-            )}
+            {isPointsModalOpen && searchedUser && (() => {
+                const userNameDisplay = searchedUser.user_metadata.display_name || searchedUser.email || 'Пользователь';
+                const currentActivityPoints = searchedUser.user_metadata.activity_points || 0;
+                return (
+                    <PointsInputModal
+                        isOpen={isPointsModalOpen}
+                        onClose={() => setIsPointsModalOpen(false)}
+                        onSave={handleSavePoints}
+                        userName={userNameDisplay}
+                        currentPoints={currentActivityPoints}
+                        isLoading={isUpdatingPoints}
+                    />
+                );
+            })()}
             <AddAdminModal
                 isOpen={isAddAdminModalOpen}
                 onClose={() => setIsAddAdminModalOpen(false)}

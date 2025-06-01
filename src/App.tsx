@@ -287,7 +287,7 @@ export const App: React.FC = () => {
 
     let isAdminMatch = false;
     for (const adminCred of ADMIN_USERS) {
-        if (userToProcess.email === adminCred.email) {
+        if (userToProcess.email?.toLowerCase() === adminCred.email.toLowerCase()) { // Case-insensitive
             if (metadata.user_viht_id !== adminCred.viht_id) {
                 metadata.user_viht_id = adminCred.viht_id;
                 needsServerUpdate = true;
