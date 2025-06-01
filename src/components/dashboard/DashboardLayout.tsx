@@ -10,8 +10,8 @@ import {
     DEFAULT_ONSITE_AD_CONTENT
 } from '../../config/settingsKeys';
 
-import { Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, CircularProgress, useMediaQuery, Divider, Toolbar, Theme as MuiTheme } from '@mui/material';
-import { useTheme } from '@mui/material/styles'; // Corrected import for useTheme
+import { Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, CircularProgress, useMediaQuery, Divider, Toolbar } from '@mui/material';
+import { useTheme, Theme as MuiTheme } from '@mui/material/styles'; // Corrected import for useTheme and MuiTheme
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ChatIcon from '@mui/icons-material/Chat';
 import StorefrontIcon from '@mui/icons-material/Storefront';

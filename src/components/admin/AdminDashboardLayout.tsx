@@ -5,8 +5,8 @@ import { UserProfile, PersonalizationSettings } from '../../types';
 import { View, AdminDashboardSection } from '../../enums/appEnums';
 import { isUserAdmin } from '../../utils/helpers';
 
-import { Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, useMediaQuery, IconButton, Toolbar, Divider, CircularProgress, Theme as MuiTheme } from '@mui/material';
-import { useTheme } from '@mui/material/styles'; // Corrected import for useTheme
+import { Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, useMediaQuery, IconButton, Toolbar, Divider, CircularProgress } from '@mui/material';
+import { useTheme, Theme as MuiTheme } from '@mui/material/styles'; // Corrected import for useTheme and MuiTheme
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import NewspaperIcon from '@mui/icons-material/Newspaper';
 import BuildIcon from '@mui/icons-material/Build';
