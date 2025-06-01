@@ -17,6 +17,7 @@ export interface AdminUserCredentials {
 export const ADMIN_USERS: AdminUserCredentials[] = [
   { viht_id: 'viht-3owuiauy', email: 'symmalop@gmail.com' },
   { viht_id: 'viht-b2yn', email: 'Lisenok319514@yandex.ru' },
+  { viht_id: 'viht-ct18iv4r', email: 'anviht@yandex.ru' },
   // Добавьте сюда других администраторов при необходимости
 ];
 
