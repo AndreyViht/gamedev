@@ -128,8 +128,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
   const drawerContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: isIconicSidebar ? 'center' : 'flex-start', px: isIconicSidebar ? 0 : 2.5, minHeight: 'var(--header-height) !important' }}>
-        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 700, color: 'primary.main' }}>
+      <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: isIconicSidebar ? 'center' : 'flex-start', px: isIconicSidebar ? 0 : 2, minHeight: 'var(--header-height) !important' }}>
+        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 700, color: 'primary.main', fontSize: '1.1rem' }}>
           {isIconicSidebar ? SIDEBAR_LOGO_ICON : "GameDev Factory"}
         </Typography>
       </Toolbar>
@@ -141,28 +141,29 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               selected={item.section !== 'ADMIN_DASHBOARD_NAV_ACTION' && currentSection === item.section}
               onClick={() => item.section === 'ADMIN_DASHBOARD_NAV_ACTION' ? onNavigateGlobal(View.AdminDashboard) : onNavigateSection(item.section as DashboardSection)}
               sx={{
-                minHeight: 48,
+                minHeight: 44, // Reduced
                 justifyContent: isIconicSidebar ? 'center' : 'initial',
-                px: 2.5,
+                px: 2, // Reduced
+                py: 0.75, // Reduced
                 borderRadius: 'var(--border-radius-small)',
-                mx: 1, mb: 0.5,
+                mx: 1, mb: 0.25, // Reduced
                 '&.Mui-selected': {
                   backgroundColor: 'action.selected', 
                 },
               }}
               title={item.text}
             >
-              <ListItemIcon sx={{ minWidth: 0, mr: isIconicSidebar ? 0 : 2, justifyContent: 'center' }}>
+              <ListItemIcon sx={{ minWidth: 0, mr: isIconicSidebar ? 0 : 1.5, justifyContent: 'center', '& .MuiSvgIcon-root': { fontSize: '1.2rem' } }}>
                 {item.icon}
               </ListItemIcon>
-              <ListItemText primary={item.text} sx={{ opacity: isIconicSidebar ? 0 : 1, whiteSpace: 'nowrap' }} />
+              <ListItemText primary={item.text} sx={{ opacity: isIconicSidebar ? 0 : 1, whiteSpace: 'nowrap', '& .MuiTypography-root': { fontSize: '0.875rem'} }} />
             </ListItemButton>
           </ListItem>
         ))}
       </List>
       
       {!isIconicSidebar && !isLoadingAd && siteAdContent.active && (
-        <Box className="sidebar-ad-placeholder" sx={{m: 2, p: 1.5, textAlign: 'center', borderRadius: 'var(--border-radius)'}}>
+        <Box className="sidebar-ad-placeholder" sx={{m: 1.5, p: 1.5, textAlign: 'center', borderRadius: 'var(--border-radius)'}}>
             <Typography component="a" 
               href={siteAdContent.url === '#' ? undefined : siteAdContent.url} 
               onClick={handleAdClick}
@@ -171,8 +172,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               aria-label={siteAdContent.title}
               sx={{textDecoration: 'none', color: 'inherit', display: 'block'}}
             >
-              <Typography variant="subtitle2" component="h4" color="primary" gutterBottom>{siteAdContent.title}</Typography>
-              <Typography variant="caption" color="text.secondary">{siteAdContent.description}</Typography>
+              <Typography variant="subtitle2" component="h4" color="primary" gutterBottom sx={{fontSize: '0.9rem'}}>{siteAdContent.title}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{fontSize: '0.8rem'}}>{siteAdContent.description}</Typography>
             </Typography>
         </Box>
       )}

@@ -78,7 +78,7 @@ export const AdminDashboardLayout: React.FC<AdminDashboardLayoutProps> = ({
     const drawerContent = (
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: isIconicOrMobileCollapsed ? 'center' : 'space-between', px: isIconicOrMobileCollapsed ? 1 : 2, minHeight: 'var(--header-height) !important' }}>
-          <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 700, color: 'primary.main' }}>
+          <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 700, color: 'primary.main', fontSize: '1.1rem' }}>
             {isIconicOrMobileCollapsed ? ADMIN_SIDEBAR_LOGO_ICON : "Админ-панель"}
           </Typography>
           {!isMobile && ( // Show desktop sidebar toggle only if not mobile
@@ -95,20 +95,21 @@ export const AdminDashboardLayout: React.FC<AdminDashboardLayoutProps> = ({
                 selected={currentAdminSection === item.section}
                 onClick={() => onNavigateAdminSection(item.section)}
                 sx={{
-                  minHeight: 48,
+                  minHeight: 44, // Reduced
                   justifyContent: isIconicOrMobileCollapsed ? 'center' : 'initial',
-                  px: 2.5,
+                  px: 2, // Reduced
+                  py: 0.75, // Reduced
                   borderRadius: 'var(--border-radius-small)',
-                  mx: 1, mb: 0.5,
+                  mx: 1, mb: 0.25, // Reduced
                   '&.Mui-selected': { backgroundColor: 'action.selected' },
                 }}
                 title={item.text}
                 aria-label={item.text}
               >
-                <ListItemIcon sx={{ minWidth: 0, mr: isIconicOrMobileCollapsed ? 0 : 2, justifyContent: 'center' }}>
+                <ListItemIcon sx={{ minWidth: 0, mr: isIconicOrMobileCollapsed ? 0 : 1.5, justifyContent: 'center', '& .MuiSvgIcon-root': { fontSize: '1.2rem' } }}>
                   {item.icon}
                 </ListItemIcon>
-                <ListItemText primary={item.text} sx={{ opacity: isIconicOrMobileCollapsed ? 0 : 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} />
+                <ListItemText primary={item.text} sx={{ opacity: isIconicOrMobileCollapsed ? 0 : 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', '& .MuiTypography-root': { fontSize: '0.875rem'} }} />
               </ListItemButton>
             </ListItem>
           ))}
@@ -119,19 +120,20 @@ export const AdminDashboardLayout: React.FC<AdminDashboardLayoutProps> = ({
                 <ListItemButton 
                     onClick={() => onNavigateGlobal(View.Dashboard)}
                     sx={{
-                        minHeight: 48,
-                        justifyContent: isIconicOrMobileCollapsed ? 'center' : 'initial',
-                        px: 2.5,
-                        borderRadius: 'var(--border-radius-small)',
-                        mx: 1, my: 1
+                      minHeight: 44, // Reduced
+                      justifyContent: isIconicOrMobileCollapsed ? 'center' : 'initial',
+                      px: 2, // Reduced
+                      py: 0.75, // Reduced
+                      borderRadius: 'var(--border-radius-small)',
+                      mx: 1, my: 1
                     }}
                     title="Назад в кабинет"
                     aria-label="Назад в личный кабинет"
                 >
-                    <ListItemIcon sx={{ minWidth: 0, mr: isIconicOrMobileCollapsed ? 0 : 2, justifyContent: 'center' }}>
+                    <ListItemIcon sx={{ minWidth: 0, mr: isIconicOrMobileCollapsed ? 0 : 1.5, justifyContent: 'center', '& .MuiSvgIcon-root': { fontSize: '1.2rem' } }}>
                         <ArrowBackIcon />
                     </ListItemIcon>
-                    <ListItemText primary="В кабинет" sx={{ opacity: isIconicOrMobileCollapsed ? 0 : 1, whiteSpace: 'nowrap' }} />
+                    <ListItemText primary="В кабинет" sx={{ opacity: isIconicOrMobileCollapsed ? 0 : 1, whiteSpace: 'nowrap', '& .MuiTypography-root': { fontSize: '0.875rem'} }} />
                 </ListItemButton>
             </ListItem>
         </List>

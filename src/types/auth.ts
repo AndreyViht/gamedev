@@ -23,6 +23,11 @@ export interface UserProfile extends User {
             completed_today: boolean; // Task goal met for the day
             claimed_today: boolean;   // Points for this task claimed for theday
             last_progress_date: string; // YYYY-MM-DD format
+            ai_generated_name?: string; // AI-generated name for the task
+            ai_generated_description?: string; // AI-generated description
+            ai_generated_points?: number; // AI-generated points for the task
+            is_ai_refreshed?: boolean; // True if AI refreshed this task's content
+            claimed_at_timestamp?: number; // Timestamp when the task reward was claimed (Date.now())
         }>;
         terms_agreed_at?: string | null; // Added for legal agreement
         [key: string]: any;

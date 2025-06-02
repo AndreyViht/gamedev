@@ -1,4 +1,3 @@
-
 /* index.css */
 /* Basic Reset & Root Variables */
 :root {
@@ -50,19 +49,19 @@
   --animation-speed-medium: 0.35s;
   --animation-speed-slow: 0.5s;
 
-  --header-height: 64px; 
+  --header-height: 60px; /* Reduced slightly */
   --footer-height: 48px; 
   --chat-input-area-height: 70px;
   
-  --dashboard-sidebar-width: 280px; 
-  --dashboard-sidebar-width-compact: 180px; 
-  --dashboard-sidebar-width-iconic: 80px;   
-  --help-chat-sidebar-width: 320px; /* Specific width for help chat sidebar */
-  --admin-support-sidebar-width: 340px; /* Specific width for admin support chat sidebar */
+  --dashboard-sidebar-width: 240px; /* Reduced from 280px */
+  --dashboard-sidebar-width-compact: 160px; /* Reduced from 180px */
+  --dashboard-sidebar-width-iconic: 72px;   /* Reduced from 80px */
+  --help-chat-sidebar-width: 300px; /* Reduced from 320px */
+  --admin-support-sidebar-width: 320px; /* Reduced from 340px */
   
   --content-max-width: 1200px; 
-  --content-padding: 24px;    
-  --content-padding-spacious: 36px; 
+  --content-padding: 20px; /* Reduced slightly */  
+  --content-padding-spacious: 32px; /* Reduced slightly */
 
 
   /* VK Style Chat Vars (Light Theme) */
@@ -151,12 +150,13 @@ body::-webkit-scrollbar,
 .support-tickets-sidebar ul::-webkit-scrollbar,
 .code-block-wrapper::-webkit-scrollbar,
 .top-users-list::-webkit-scrollbar, 
-.achievements-list::-webkit-scrollbar,
+.achievements-list::-webkit-scrollbar, /* Applied for modal content as well */
+.daily-tasks-list::-webkit-scrollbar, /* Applied for modal content as well */
 .ai-chat-page.vk-style .chat-messages-container::-webkit-scrollbar,
 .ai-chat-page.vk-style .chat-input-area textarea::-webkit-scrollbar,
 .personalization-modal-content::-webkit-scrollbar,
 .modal-content::-webkit-scrollbar, /* General modal scrollbar */
-.version-history-page::-webkit-scrollbar /* Version history page scrollbar */
+.version-history-page::-webkit-scrollbar
 {
   display: none;
   width: 0; 
@@ -169,7 +169,8 @@ body,
 .support-tickets-sidebar ul,
 .code-block-wrapper, 
 .top-users-list, 
-.achievements-list,
+.achievements-list, /* Applied for modal content as well */
+.daily-tasks-list, /* Applied for modal content as well */
 .ai-chat-page.vk-style .chat-messages-container,
 .ai-chat-page.vk-style .chat-input-area textarea,
 .personalization-modal-content,
@@ -179,7 +180,7 @@ body,
   scrollbar-width: none; 
   -ms-overflow-style: none; 
 }
-.dashboard-content, .admin-content, .chat-sessions-list, .support-tickets-sidebar ul, .code-block-wrapper, .top-users-list, .achievements-list,
+.dashboard-content, .admin-content, .chat-sessions-list, .support-tickets-sidebar ul, .code-block-wrapper, .top-users-list, .achievements-list, .daily-tasks-list,
 .ai-chat-page.vk-style .chat-messages-container,
 .ai-chat-page.vk-style .chat-input-area textarea,
 .personalization-modal-content,
@@ -307,36 +308,143 @@ body,
   background-color: var(--card-background-color);
   box-shadow: var(--box-shadow-light);
 }
-.achievements-card, .daily-tasks-card { 
+.achievements-card, .daily-tasks-card { /* These are now just info cards with buttons */
     margin-top: 20px; 
     grid-column: 1 / -1; 
 }
+
+/* Minimalistic Achievements (styling for modal content) */
 .achievements-list {
     list-style: none; padding: 0; margin: 0;
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); 
-    gap: 20px; margin-bottom: 25px; max-height: 450px; 
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
+    gap: 15px; 
+    margin-bottom: 0; /* Removed bottom margin as it's in a modal */
+    max-height: 65vh; /* Set max height for scrollability in modal */
 }
 .achievement-item { 
-    padding: 20px 18px; border-radius: var(--border-radius);
-    border: 1px solid var(--border-color); border-left-width: 5px; 
+    padding: 12px 10px; 
+    border-radius: var(--border-radius-small); 
+    border: 1px solid var(--border-color); 
+    border-left-width: 4px; 
     display: flex; flex-direction: column; align-items: center; text-align: center;
     transition: transform var(--transition-speed), box-shadow var(--transition-speed);
     position: relative; background-color: var(--secondary-background-color); 
+    min-height: 120px; 
 }
-.achievement-item:hover { transform: translateY(-3px); box-shadow: var(--box-shadow); }
+.achievement-item:hover { transform: translateY(-2px); box-shadow: var(--box-shadow); }
 .achievement-item.earned { border-left-color: var(--success-color); } 
-.achievement-item.locked { opacity: 0.7; }
-.achievement-item .achievement-icon { font-size: 2.5em; margin-bottom: 10px; }
-.achievement-item .achievement-name { font-weight: 600; margin-bottom: 5px; font-size: 1.05em; }
-.achievement-item .achievement-description { font-size: 0.85em; color: var(--subtle-text-color); margin-bottom: 10px; flex-grow: 1; }
+.achievement-item.locked { opacity: 0.6; } 
+.achievement-item .achievement-icon { 
+  font-size: 2em; 
+  margin-bottom: 8px; 
+}
+.achievement-item .achievement-name { 
+  font-weight: 500; 
+  margin-bottom: 4px; 
+  font-size: 0.9em; 
+  line-height: 1.3;
+}
+.achievement-item .achievement-description { display: none; } /* Handled by Tooltip */
+
 .achievement-item .achievement-level {
-  padding: 3px 8px; border-radius: var(--border-radius-small); font-size: 0.75em;
+  padding: 2px 6px; 
+  border-radius: var(--border-radius-small); font-size: 0.7em; 
   font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;
   margin-top: auto; 
 }
-.achievement-item .achievement-points { font-size: 0.8em; color: var(--accent-color); font-weight: 500; margin-top: 5px; }
-.achievement-item.secret.locked .achievement-icon { filter: grayscale(1) blur(2px); }
-.achievement-item.secret .achievement-name { font-style: italic; }
+.achievement-item .achievement-points { 
+  font-size: 0.75em; 
+  color: var(--accent-color); font-weight: 500; margin-top: 3px; 
+}
+.achievement-item.secret.locked .achievement-icon { filter: grayscale(1) blur(1.5px); font-size: 1.8em; }
+.achievement-item.secret .achievement-name { font-style: italic; font-size: 0.85em; }
+
+
+/* Minimalistic Daily Tasks (styling for modal content) */
+.daily-tasks-list {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; 
+    flex-direction: column; /* Stack vertically in modal by default */
+    gap: 15px; 
+    margin-bottom: 0; /* Removed bottom margin as it's in a modal */
+    max-height: 65vh; /* Set max height for scrollability in modal */
+}
+.daily-task-item {
+    padding: 15px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    background-color: var(--secondary-background-color);
+    display: flex;
+    flex-direction: column;
+    transition: opacity 0.3s ease, filter 0.3s ease;
+}
+.daily-task-item.claimed {
+    opacity: 0.6;
+    filter: grayscale(50%);
+}
+.daily-task-item .task-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.daily-task-item .task-icon {
+    font-size: 1.8em;
+    margin-right: 12px;
+    color: var(--primary-color);
+}
+.daily-task-item .task-info {
+    flex-grow: 1;
+}
+.daily-task-item .task-name {
+    font-weight: 500;
+    font-size: 1em;
+    margin-bottom: 3px;
+}
+.daily-task-item .task-description {
+    font-size: 0.8em;
+    color: var(--subtle-text-color);
+    line-height: 1.3;
+    min-height: 30px; 
+}
+.daily-task-item .task-reward {
+    font-size: 0.9em;
+    font-weight: bold;
+    color: var(--accent-color);
+    margin-left: 10px;
+    white-space: nowrap;
+}
+.daily-task-item .task-progress-bar { 
+    height: 6px;
+    border-radius: var(--border-radius-small);
+    margin-bottom: 8px;
+}
+.daily-task-item .task-progress-text {
+    font-size: 0.8em;
+    color: var(--subtle-text-color);
+}
+.daily-task-item .task-actions {
+    margin-top: auto; 
+    padding-top: 10px; 
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.daily-task-item .task-timer {
+    font-size: 1.1em;
+    font-weight: 500;
+    color: var(--text-color);
+}
+.daily-task-item .task-claim-button { 
+    font-size: 0.85em !important;
+    padding: 6px 12px !important;
+}
+.daily-task-item .task-completed-message {
+    font-size: 0.85em;
+    color: var(--success-color);
+    display: flex;
+    align-items: center;
+}
+
 
 .user-points-card .points-display { font-size: 2.5em; font-weight: bold; color: var(--primary-color); margin: 10px 0; }
 .coming-soon-text { font-style: italic; color: var(--subtle-text-color); font-size: 0.9em; }
@@ -356,6 +464,7 @@ body,
 }
 
 /* Chat Sessions Sidebar (Desktop and Base) */
+/* Widths are now primarily controlled by CSS variables which were reduced */
 .ai-chat-page.vk-style .chat-sessions-sidebar,
 .help-chat-section.vk-style .chat-sessions-sidebar,
 .admin-support-section.vk-style .chat-sessions-sidebar {
@@ -382,6 +491,23 @@ body,
   overflow-y: auto;
   padding: 8px;
 }
+/* Sidebar items minimal styling */
+.ai-chat-page.vk-style .chat-sessions-sidebar .MuiListItemButton-root,
+.help-chat-section.vk-style .chat-sessions-sidebar .MuiListItemButton-root,
+.admin-support-section.vk-style .chat-sessions-sidebar .MuiListItemButton-root {
+    padding: 8px 12px; /* Reduced padding */
+}
+.ai-chat-page.vk-style .chat-sessions-sidebar .MuiListItemText-primary,
+.help-chat-section.vk-style .chat-sessions-sidebar .MuiListItemText-primary,
+.admin-support-section.vk-style .chat-sessions-sidebar .MuiListItemText-primary {
+    font-size: 0.9rem; /* Slightly smaller font */
+}
+.ai-chat-page.vk-style .chat-sessions-sidebar .MuiListItemText-secondary,
+.help-chat-section.vk-style .chat-sessions-sidebar .MuiListItemText-secondary,
+.admin-support-section.vk-style .chat-sessions-sidebar .MuiListItemText-secondary {
+    font-size: 0.75rem; /* Smaller secondary font */
+}
+
 
 /* Chat Main Area (Desktop and Base) */
 .ai-chat-page.vk-style .chat-main-area,
@@ -410,7 +536,7 @@ body,
 }
 .ai-chat-page.vk-style .chat-header .chat-page-title,
 .help-chat-section.vk-style .chat-header .chat-page-title,
-.admin-support-section.vk-style .chat-header .chat-page-title { margin-bottom: 0 !important; }
+.admin-support-section.vk-style .chat-header .chat-page-title { margin-bottom: 0 !important; font-size: 1.25rem; } /* Reduced title size */
 
 /* Mobile Chat Toggle Button (Minimalistic) */
 .mobile-chat-toggle-button {
@@ -770,13 +896,19 @@ body,
 }
 @media (max-width: 768px) {
   :root { 
-    --dashboard-sidebar-width: 240px; 
-    --dashboard-sidebar-width-iconic: 72px;
-    --help-chat-sidebar-width: 260px; 
-    --admin-support-sidebar-width: 280px;
-    --content-padding: 18px;
+    --dashboard-sidebar-width: 220px; /* Reduced for mobile */
+    --dashboard-sidebar-width-iconic: 68px; /* Reduced for mobile */
+    --help-chat-sidebar-width: 240px; 
+    --admin-support-sidebar-width: 260px;
+    --content-padding: 16px; /* Reduced for mobile */
   }
   .page-title { font-size: 2em; } .sub-page-title { font-size: 1.6em; }
+  .daily-tasks-list { /* Make tasks stack on smaller screens if in modal too */
+      flex-direction: column;
+  }
+  .daily-task-item { /* Ensure tasks take full width when stacked */
+      max-width: none;
+  }
 }
 @media (max-width: 480px) {
   :root {
@@ -788,6 +920,7 @@ body,
   .auth-container { padding: 20px; }
   .modal-content { padding: 20px; }
   .message-bubble { max-width: 85%; } /* Allow slightly wider bubbles on small screens */
+  .achievements-list { grid-template-columns: 1fr; } /* Stack achievements vertically on very small screens in modal */
 }
 .spinner { width: 22px; height: 22px; border: 3px solid color-mix(in srgb, var(--primary-color) 20%, transparent); border-left-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
 .spinner.small { width: 18px; height: 18px; border-width: 2.5px; }
@@ -1209,3 +1342,49 @@ body,
         flex-direction: column; /* Main area should stack header, messages, input */
     }
 }
+
+/* Minimalistic Dashboard & Admin Sidebars */
+.dashboard-layout .MuiDrawer-paper .MuiListItemButton-root,
+.admin-dashboard-layout .MuiDrawer-paper .MuiListItemButton-root {
+    padding-top: 8px; /* Reduced */
+    padding-bottom: 8px; /* Reduced */
+    padding-left: 16px; /* Reduced */
+    padding-right: 16px; /* Reduced */
+    margin-bottom: 2px; /* Reduced */
+}
+
+.dashboard-layout .MuiDrawer-paper .MuiListItemIcon-root,
+.admin-dashboard-layout .MuiDrawer-paper .MuiListItemIcon-root {
+    min-width: 36px; /* Reduced */
+    margin-right: 12px; /* Reduced */
+}
+.dashboard-layout .MuiDrawer-paper .MuiListItemIcon-root .MuiSvgIcon-root,
+.admin-dashboard-layout .MuiDrawer-paper .MuiListItemIcon-root .MuiSvgIcon-root {
+    font-size: 1.25rem; /* Slightly smaller icons */
+}
+
+.dashboard-layout .MuiDrawer-paper .MuiListItemText-primary,
+.admin-dashboard-layout .MuiDrawer-paper .MuiListItemText-primary {
+    font-size: 0.9rem; /* Slightly smaller text */
+}
+.dashboard-layout .MuiDrawer-paper .MuiToolbar-root .MuiTypography-h6,
+.admin-dashboard-layout .MuiDrawer-paper .MuiToolbar-root .MuiTypography-h6 {
+    font-size: 1.1rem; /* Smaller sidebar title */
+    font-weight: 600;
+}
+.dashboard-layout .MuiDrawer-paper .MuiToolbar-root,
+.admin-dashboard-layout .MuiDrawer-paper .MuiToolbar-root {
+    padding-left: 16px; /* Reduced */
+    padding-right: 12px; /* Reduced */
+}
+```CDATA[</content>
+  </change>
+</changes>
+```
+I've created two new components:
+*   `src/components/dashboard/achievements/AchievementsModal.tsx`
+*   `src/components/dashboard/daily_tasks/DailyTasksModal.tsx`
+
+The `AccountSection.tsx` has been updated to include buttons that will toggle these modals. The logic for displaying, interacting with, and updating daily tasks (including timers and AI refresh) has been moved into `DailyTasksModal.tsx`. The achievements display is now handled by `AchievementsModal.tsx`.
+
+This should make the main Account page cleaner and more focused, especially on mobile, while keeping all the information accessible. I've also made some minor CSS adjustments for the modal content display.

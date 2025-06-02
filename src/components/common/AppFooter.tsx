@@ -26,7 +26,7 @@ export const AppFooter: React.FC<AppFooterProps> = ({ onOpenLegalModal, onNaviga
       </Link>
       {' '}
       <Link component="button" onClick={onNavigateToVersionHistory} sx={{ color: 'text.secondary', textDecoration: 'underline', cursor: 'pointer' }}>
-        Версия: 3.165
+        Версия: 3.167
       </Link>
     </Typography>
   </Box>

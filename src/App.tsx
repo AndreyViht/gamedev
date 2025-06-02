@@ -237,7 +237,7 @@ export const App: React.FC = () => {
         if (newsError) throw newsError;
         setDbNewsItems(newsData || []);
     } catch (error) { /* console.error("Error fetching news from Supabase:", error); */ }
-  }, [supabase]);
+  }, []); // Removed supabase from dep array as it's constant
 
   const fetchProjectsFromSupabase = useCallback(async () => {
     if (!supabase) { return; }
@@ -246,7 +246,7 @@ export const App: React.FC = () => {
         if (projectsError) throw projectsError;
         setDbProjects(projectsData || []);
     } catch (error) { /* console.error("Error fetching projects from Supabase:", error); */ }
-  }, [supabase]);
+  }, []); // Removed supabase from dep array
 
   useEffect(() => {
     const newsForLanding: NewsItem[] = dbNewsItems
@@ -336,13 +336,27 @@ export const App: React.FC = () => {
     for (const taskDef of dailyTasksList) {
         let userTask = currentDailyTasks.find(ut => ut.task_id === taskDef.id);
         if (userTask) {
-            if (userTask.last_progress_date !== todayDateString) { 
+            // Ensure AI fields exist if not present from older data structures
+            userTask.ai_generated_name = userTask.ai_generated_name ?? undefined;
+            userTask.ai_generated_description = userTask.ai_generated_description ?? undefined;
+            userTask.ai_generated_points = userTask.ai_generated_points ?? undefined;
+            userTask.is_ai_refreshed = userTask.is_ai_refreshed ?? false;
+            userTask.claimed_at_timestamp = userTask.claimed_at_timestamp ?? undefined;
+
+            if (userTask.last_progress_date !== todayDateString && !userTask.claimed_at_timestamp) { // Reset if new day AND not currently in cooldown
                 userTask.current_value = 0; userTask.completed_today = false; userTask.claimed_today = false;
-                userTask.last_progress_date = todayDateString; tasksUpdated = true;
+                userTask.last_progress_date = todayDateString; 
+                // Don't reset AI generated content here, it resets after timer
+                tasksUpdated = true;
             }
             processedTaskProgress.push(userTask);
         } else { 
-            processedTaskProgress.push({ task_id: taskDef.id, current_value: 0, completed_today: false, claimed_today: false, last_progress_date: todayDateString });
+            processedTaskProgress.push({ 
+                task_id: taskDef.id, current_value: 0, completed_today: false, claimed_today: false, 
+                last_progress_date: todayDateString,
+                ai_generated_name: undefined, ai_generated_description: undefined, ai_generated_points: undefined,
+                is_ai_refreshed: false, claimed_at_timestamp: undefined
+            });
             tasksUpdated = true;
         }
     }
@@ -547,6 +561,36 @@ export const App: React.FC = () => {
     }
   }, [initialDataLoaded, user, currentView, handleNavigation, initialViewLogicApplied]);
 
+  // Effect for checking and refreshing daily tasks if timers expired while user was offline
+  useEffect(() => {
+    if(user && user.user_metadata?.daily_task_progress && currentView === View.Dashboard && currentDashboardSection === DashboardSection.Account){
+        const todayDateString = new Date().toISOString().split('T')[0];
+        let needsUpdate = false;
+        const updatedTasksProgress = user.user_metadata.daily_task_progress.map(tp => {
+            if (tp.claimed_today && tp.claimed_at_timestamp) {
+                const elapsed = (Date.now() - tp.claimed_at_timestamp) / 1000;
+                if (elapsed >= 24 * 60 * 60) { // Timer expired
+                    needsUpdate = true;
+                    // We will rely on AccountSection's useEffect to handle the AI call and actual reset,
+                    // but we can mark it for update here by changing last_progress_date or a similar flag
+                    // to ensure AccountSection's logic picks it up even if it wasn't already "running" a timer.
+                    // For simplicity, AccountSection's timer logic should handle this naturally on load.
+                    // This effect is more of a trigger if AccountSection isn't already handling it.
+                    // However, given AccountSection's useEffect on daily_task_progress, it should.
+                }
+            } else if(tp.last_progress_date !== todayDateString) { // New day, reset non-cooldown tasks
+                needsUpdate = true;
+                return {...tp, current_value:0, completed_today: false, claimed_today: false, last_progress_date: todayDateString};
+            }
+            return tp;
+        });
+        if(needsUpdate) {
+            // console.log("App.tsx: Detected tasks needing refresh/reset on load.");
+            // updateUserProfile({daily_task_progress: updatedTasksProgress}); // This might trigger AccountSection's logic
+        }
+    }
+  }, [user, currentView, currentDashboardSection, updateUserProfile]);
+
 
   useEffect(() => {
     let dynamicViewName = APP_NAME; 
@@ -632,7 +676,7 @@ export const App: React.FC = () => {
           if (taskProgress.current_value >= taskDef.target_value) {
             taskProgress.completed_today = true;
             if(!initialMetadataSnapshotForToast.daily_task_progress?.find((tp: any) => tp.task_id === taskDef.id)?.completed_today) {
-                 showToast(`Ежедневное задание "${taskDef.name}" выполнено! Зайдите в раздел 'Аккаунт', чтобы забрать награду.`, 'info');
+                 showToast(`Ежедневное задание "${taskProgress.ai_generated_name || taskDef.name}" выполнено! Зайдите в раздел 'Аккаунт', чтобы забрать награду.`, 'info');
             }
           }
         }

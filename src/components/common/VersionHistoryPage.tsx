@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Box, Typography, Paper, List, ListItem, ListItemText, Button, Chip } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -24,8 +23,31 @@ interface VersionEntry {
 // Static data for now. This would ideally come from a CMS or a JSON file.
 const versionData: VersionEntry[] = [
   {
+    version: '3.167',
+    date: 'Текущее Обновление',
+    title: 'Редизайн Достижений, Ежедневных Заданий (с AI) и Боковых Панелей, Улучшение Чата',
+    changes: [
+      { type: 'style', description: 'Блоки достижений сделаны более минималистичными и компактными. Описание удалено из видимой части (осталось в Tooltip).', component: 'AccountSection.tsx, index.css' },
+      { type: 'feature', description: 'Блоки ежедневных заданий переделаны для отображения в ряд. После получения награды появляется 24-часовой таймер.', component: 'AccountSection.tsx, index.css' },
+      { type: 'feature', description: 'Интегрирован AI (Gemini) для генерации нового названия, описания и количества очков для ежедневных заданий по истечении таймера.', component: 'AccountSection.tsx, types/auth.ts' },
+      { type: 'improvement', description: 'При ошибке AI-чата, связанной с региональными ограничениями, теперь отображается сообщение: "Включите пожалуйста VPN (данная проблема будет временно)".', component: 'AIChatPage.tsx' },
+      { type: 'style', description: 'Боковые меню в Личном кабинете и Админ-панели сделаны более минималистичными: уменьшена ширина, отступы, размеры шрифтов и иконок.', component: 'DashboardLayout.tsx, AdminDashboardLayout.tsx, index.css' },
+      { type: 'refactor', description: 'Обновлены типы для `daily_task_progress` для поддержки AI-генерируемого контента и таймеров.', component: 'types/auth.ts' },
+      { type: 'docs', description: 'Обновлена история версий.', component: 'VersionHistoryPage.tsx, AppFooter.tsx' },
+    ],
+  },
+  {
+    version: '3.166',
+    date: '2024-07-30', // Assuming previous update date
+    title: 'Улучшение Отображения Лимитов AI',
+    changes: [
+      { type: 'improvement', description: "Перемещена информация о лимитах AI-запросов и дате их следующего сброса из карточки 'Статус и Лимиты' в карточку 'Доступные AI Модели' в разделе 'Аккаунт'.", component: 'AccountSection.tsx' },
+      { type: 'docs', description: 'Обновлена история версий для отражения последних изменений.', component: 'VersionHistoryPage.tsx, AppFooter.tsx' },
+    ],
+  },
+  {
     version: '3.165',
-    date: 'Дата Текущего Обновления', // Will be updated by user in prompt
+    date: '2024-07-29', 
     title: 'Мобильный Редизайн Чатов и История Версий',
     changes: [
       { type: 'feature', description: 'Полный редизайн интерфейса чатов (AI, Поддержка) для мобильных устройств (Android) для улучшения UX.', component: 'AIChatPage, HelpChatSection, AdminSupportChatsSection' },
@@ -37,15 +59,6 @@ const versionData: VersionEntry[] = [
       { type: 'style', description: 'Улучшены стили для мобильных устройств в глобальном CSS.', component: 'index.css' },
     ],
   },
-  // Add previous versions here if known or as they are documented
-  // {
-  //   version: '3.164',
-  //   date: 'YYYY-MM-DD',
-  //   title: 'Предыдущие улучшения',
-  //   changes: [
-  //     { type: 'fix', description: 'Исправлена ошибка X в компоненте Y.', component: 'ComponentY' },
-  //   ],
-  // },
 ];
 
 const getChipColor = (type: ChangeDetail['type']): "primary" | "secondary" | "success" | "error" | "info" | "warning" => {

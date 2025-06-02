@@ -221,9 +221,20 @@ export const AIChatPage: React.FC<AIChatPageProps> = ({ genAI: ai, user, onAiReq
       setChatSessions(prev => prev.map(cs => cs.id === activeChatId ? { ...cs, messages: [...cs.messages, modelMessage], systemInstructionSnapshot: selectedModelConfig.id !== VIHT_IMAGE_GEN_ID ? selectedModelConfig.getSystemInstruction(userNameForAI, currentChat.customInstruction) : undefined, modelDisplayName: selectedModelConfig.displayName, modelVersion: selectedModelConfig.version, } : cs ));
       onAiRequestMade();
     } catch (e: any) {
-      const errorMessage = `Ошибка ${selectedModelConfig.displayName}: ${e.message || "Неизвестная ошибка"}`;
-      setError(errorMessage);
-      const errorMsgObj: ChatMessage = { id: `msg_${Date.now()}_error`, sender: 'model', text: `Извините, произошла ошибка. (${e.message || 'Попробуйте позже.'})`, timestamp: new Date() };
+      let originalErrorMessage = e.message || "Неизвестная ошибка";
+      const regionErrorKeywords = ["region", "not available in your region", "географическое ограничение", "недоступно в вашем регионе", "unsupported language"]; // Added "unsupported language" as it's common with region blocks.
+      
+      let displayErrorMessage = `Ошибка ${selectedModelConfig.displayName}: ${originalErrorMessage}`;
+      if (regionErrorKeywords.some(keyword => originalErrorMessage.toLowerCase().includes(keyword))) {
+          displayErrorMessage = "Включите пожалуйста VPN (данная проблема будет временно)";
+      }
+      setError(displayErrorMessage);
+      const errorMsgObj: ChatMessage = { 
+          id: `msg_${Date.now()}_error`, 
+          sender: 'model', 
+          text: displayErrorMessage,
+          timestamp: new Date() 
+      };
       setChatSessions(prev => prev.map(cs => cs.id === activeChatId ? {...cs, messages: [...cs.messages, errorMsgObj]} : cs));
     } finally { setIsLoading(false); }
   };
@@ -270,7 +281,7 @@ export const AIChatPage: React.FC<AIChatPageProps> = ({ genAI: ai, user, onAiReq
     <Box 
         className="chat-sessions-sidebar" 
         sx={{ 
-            width: isMobile ? '100%' : {xs: '100%', sm: 'var(--dashboard-sidebar-width)'}, 
+            width: isMobile ? '100%' : 'var(--dashboard-sidebar-width)', 
             borderRight: isMobile ? 'none' : {xs: 'none', sm: theme => `1px solid ${theme.palette.divider}`}, 
             p: '10px 0', 
             display: 'flex', 
@@ -280,10 +291,10 @@ export const AIChatPage: React.FC<AIChatPageProps> = ({ genAI: ai, user, onAiReq
         }}
     >
         <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: '5px 18px 10px 18px'}}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>Чаты ({chatSessions.length}/{MAX_SAVED_CHATS})</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>Чаты ({chatSessions.length}/{MAX_SAVED_CHATS})</Typography>
             {isMobile && <IconButton onClick={() => setMobileSidebarOpen(false)}><CloseIcon /></IconButton>}
         </Box>
-        <Button variant="outlined" startIcon={<AddCircleOutlineIcon />} onClick={handleOpenNewChatModal} disabled={chatSessions.length >= MAX_SAVED_CHATS || isLoading} sx={{ m: '0 15px 10px 15px', textTransform: 'none' }}>Новый чат</Button>
+        <Button variant="outlined" startIcon={<AddCircleOutlineIcon />} onClick={handleOpenNewChatModal} disabled={chatSessions.length >= MAX_SAVED_CHATS || isLoading} sx={{ m: '0 15px 10px 15px', textTransform: 'none', fontSize: '0.85rem' }}>Новый чат</Button>
         <List sx={{ overflowY: 'auto', flexGrow: 1, p: '0 8px' }}>
           {chatSessions.map(cs => (
             <ListItem 
@@ -301,13 +312,15 @@ export const AIChatPage: React.FC<AIChatPageProps> = ({ genAI: ai, user, onAiReq
                 sx={{
                   borderRadius: 'var(--border-radius-small)', 
                   mb: 0.5, 
+                  py: '6px', // Reduced padding
                   '&.Mui-selected': {bgcolor: 'action.selected'}
                 }}
               >
                 <ListItemText 
-                  primary={cs.name.length > 25 ? cs.name.substring(0,22) + "..." : cs.name} 
+                  primary={cs.name.length > 20 ? cs.name.substring(0,18) + "..." : cs.name} 
                   secondary={cs.modelDisplayName} 
-                  primaryTypographyProps={{noWrap: true}} 
+                  primaryTypographyProps={{noWrap: true, fontSize: '0.85rem'}} 
+                  secondaryTypographyProps={{noWrap:true, fontSize: '0.7rem'}}
                 />
                  {isMobile && (
                     <IconButton edge="end" aria-label="Удалить чат" onClick={(e) => {e.stopPropagation(); handleDeleteChat(cs.id)}} size="small">
@@ -343,7 +356,7 @@ export const AIChatPage: React.FC<AIChatPageProps> = ({ genAI: ai, user, onAiReq
       )}
 
       <Box className="chat-main-area" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        <Paper square elevation={0} className="chat-header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: isMobile ? '8px 12px' : 2, borderBottom: theme => `1px solid ${theme.palette.divider}` }}>
+        <Paper square elevation={0} className="chat-header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: isMobile ? '8px 12px' : '10px 15px', borderBottom: theme => `1px solid ${theme.palette.divider}` }}>
             <Box sx={{display: 'flex', alignItems: 'center', overflow: 'hidden'}}>
                 {isMobile && (
                     <IconButton
@@ -358,13 +371,13 @@ export const AIChatPage: React.FC<AIChatPageProps> = ({ genAI: ai, user, onAiReq
                     </IconButton>
                 )}
                 <Box sx={{overflow: 'hidden'}}>
-                    <Typography variant={isMobile ? "subtitle1" : "h6"} className="chat-page-title" noWrap title={currentChat.name}>{currentChat.name}</Typography>
+                    <Typography variant={isMobile ? "subtitle1" : "h6"} className="chat-page-title" noWrap title={currentChat.name} sx={{fontSize: isMobile ? '1rem' : '1.15rem'}}>{currentChat.name}</Typography>
                     {!isMobile && <Typography variant="caption" className="chat-model-info">Модель: {currentModelConfig.displayName}{currentChat.selectedModelId === VIHT_IMAGE_GEN_ID && ` (генерация изображений в разработке)`}</Typography>}
                 </Box>
             </Box>
             <Box className="chat-controls" sx={{display: 'flex', alignItems: 'center'}}>
-                {!isMobile && <IconButton onClick={() => { const newName = prompt("Новое имя чата:", currentChat.name); if (newName !== null) handleRenameChat(currentChat.id, newName); }} aria-label="Переименовать чат" title="Переименовать чат"><EditIcon /></IconButton>}
-                <IconButton onClick={() => setIsAiSettingsModalOpen(true)} aria-label="Настройки AI" title="Настройки AI"><SettingsIcon /></IconButton>
+                {!isMobile && <IconButton onClick={() => { const newName = prompt("Новое имя чата:", currentChat.name); if (newName !== null) handleRenameChat(currentChat.id, newName); }} aria-label="Переименовать чат" title="Переименовать чат" size="small"><EditIcon fontSize="small"/></IconButton>}
+                <IconButton onClick={() => setIsAiSettingsModalOpen(true)} aria-label="Настройки AI" title="Настройки AI" size="small"><SettingsIcon fontSize="small"/></IconButton>
                 {!isMobile && <Typography variant="caption" className="ai-request-info" sx={{ml: 1, color: 'text.secondary', display: {xs: 'none', sm: 'inline'}}}>Запросы: {aiRequestsMade}/{aiRequestsLimit}</Typography>}
             </Box>
         </Paper>
