@@ -23,30 +23,6 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Helper function to check admin status (simplified)
-async function isAdmin(supabaseAdminClient: any, jwt: string): Promise<boolean> {
-  const { data: { user }, error: userError } = await supabaseAdminClient.auth.getUser(jwt);
-  if (userError || !user) {
-    console.error('Admin check: User fetch error or no user', userError);
-    return false;
-  }
-
-  const adminVihtIdsConfig = Deno.env.get('ADMIN_USER_VIHT_IDS_CONFIG')?.split(',') || [];
-  const adminEmailsConfig = Deno.env.get('ADMIN_USER_EMAILS_CONFIG')?.split(',') || [];
-  
-  const userVihtId = user.user_metadata?.user_viht_id;
-  const userEmail = user.email;
-
-  for (let i = 0; i < adminEmailsConfig.length; i++) {
-    if (userEmail === adminEmailsConfig[i].trim() && userVihtId === (adminVihtIdsConfig[i]?.trim())) {
-      return true;
-    }
-  }
-  console.warn(`Admin check failed for user: ${userEmail} (Viht ID: ${userVihtId})`);
-  return false;
-}
-
-
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -54,12 +30,11 @@ serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get('APP_SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('APP_SERVICE_ROLE_KEY');
+    const serviceRoleKey = Deno.env.get('APP_SERVICE_ROLE_KEY'); // Still needed for Supabase client init
     const telegramBotToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
-    // TELEGRAM_CHANNEL_ID is now a fallback/default
     const defaultTelegramChannelIdFromEnv = Deno.env.get('TELEGRAM_CHANNEL_ID'); 
 
-    if (!supabaseUrl || !serviceRoleKey || !telegramBotToken ) { // defaultTelegramChannelIdFromEnv can be optional if targetChannelId is always provided
+    if (!supabaseUrl || !serviceRoleKey || !telegramBotToken ) {
       console.error('Missing critical environment variables (Supabase URL, Service Role Key, Telegram Bot Token).');
       return new Response(JSON.stringify({ error: 'Server configuration error: Missing critical credentials.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -67,26 +42,30 @@ serve(async (req: Request) => {
       });
     }
     
+    // Verify the JWT from the Authorization header to ensure the user is authenticated
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Missing authorization header' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     const token = authHeader.replace('Bearer ', '');
-    const supabaseAdminForAuth = createClient(supabaseUrl, serviceRoleKey, {
+    const supabaseClientForAuth = createClient(supabaseUrl, serviceRoleKey, { // Use service key to validate any user token
         auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    if (!await isAdmin(supabaseAdminForAuth, token)) {
-        return new Response(JSON.stringify({ error: 'Admin privileges required.' }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 403,
-        });
+    const { data: { user }, error: userError } = await supabaseClientForAuth.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('User authentication error:', userError);
+      return new Response(JSON.stringify({ error: 'Invalid token or user not authenticated.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401, // Unauthorized
+      });
     }
+    // Admin check is removed. Any authenticated user can proceed.
 
     const body: ContestDetails = await req.json();
     const { title, description, prize, imageUrl, buttonText, buttonUrl, targetChannelId } = body;
 
-    // Determine the channel ID to use
     const effectiveChannelId = targetChannelId && typeof targetChannelId === 'string' && targetChannelId.trim() !== ''
                                 ? targetChannelId.trim()
                                 : defaultTelegramChannelIdFromEnv;
@@ -98,7 +77,6 @@ serve(async (req: Request) => {
         status: 400,
       });
     }
-
 
     if (!title || !description || !prize) {
       return new Response(JSON.stringify({ error: 'Title, description, and prize are required.' }), {
@@ -113,7 +91,7 @@ serve(async (req: Request) => {
     text += `Подробности и участие как указано в описании. Желаем удачи! ✨`;
 
     const payload: any = {
-      chat_id: effectiveChannelId, // Use the determined channel ID
+      chat_id: effectiveChannelId,
       parse_mode: 'Markdown',
     };
 
