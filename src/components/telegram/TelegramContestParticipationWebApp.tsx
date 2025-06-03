@@ -82,7 +82,7 @@ const TelegramContestParticipationWebApp: React.FC = () => {
   const [contestDetails, setContestDetails] = useState<ContestDetailsDB | null>(null);
   const [telegramUser, setTelegramUser] = useState<Window['Telegram']['WebApp']['initDataUnsafe']['user'] | null>(null);
   const [conditionsState, setConditionsState] = useState<ContestConditionClientState[]>([]);
-  
+
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -92,54 +92,46 @@ const TelegramContestParticipationWebApp: React.FC = () => {
 
   useEffect(() => {
     console.log('[TWA] WebApp component mounted.');
-    const initDataUnsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
-    const currentDebugInfo: Record<string, any> = {
-        initDataUnsafe: JSON.stringify(initDataUnsafe, null, 2),
-        startParam: initDataUnsafe.start_param,
-        locationSearch: window.location.search,
-        isTelegramWebAppDefined: !!window.Telegram?.WebApp,
-    };
+    const isSDKDefined = !!window.Telegram?.WebApp;
+    const initDataUnsafeRaw = isSDKDefined ? window.Telegram.WebApp.initDataUnsafe || {} : {};
+    const sdkStartParam = isSDKDefined ? initDataUnsafeRaw.start_param : undefined;
+    const queryContestId = new URLSearchParams(window.location.search).get('contestId');
 
-    if (window.Telegram && window.Telegram.WebApp) {
+    const actualContestIdToUse = sdkStartParam || queryContestId;
+
+    const currentDebugInfo: Record<string, any> = {
+        initDataUnsafe: isSDKDefined ? JSON.stringify(initDataUnsafeRaw) : "{}",
+        startParam: sdkStartParam,
+        locationSearch: window.location.search,
+        isTelegramWebAppDefined: isSDKDefined,
+        telegramUserIdFromSDK: isSDKDefined ? (initDataUnsafeRaw.user?.id || "N/A") : "N/A",
+        telegramUsernameFromSDK: isSDKDefined ? (initDataUnsafeRaw.user?.username || "N/A") : "N/A",
+        idFromQuery: queryContestId,
+        idFromStartParam: sdkStartParam,
+        finalContestId: isSDKDefined ? (actualContestIdToUse || "N/A") : "N/A",
+    };
+     setDebugInfo(currentDebugInfo);
+
+    if (isSDKDefined) {
       console.log('[TWA] Telegram WebApp SDK found. Calling ready().');
       window.Telegram.WebApp.ready();
       window.Telegram.WebApp.expand();
       const userFromSDK = window.Telegram.WebApp.initDataUnsafe.user || null;
       setTelegramUser(userFromSDK);
-      currentDebugInfo.telegramUserIdFromSDK = userFromSDK?.id;
-      currentDebugInfo.telegramUsernameFromSDK = userFromSDK?.username;
 
-      let idFromStartParam: string | null = null;
-      if (window.Telegram.WebApp.initDataUnsafe.start_param) {
-        idFromStartParam = window.Telegram.WebApp.initDataUnsafe.start_param;
-        console.log(`[TWA] contestId from start_param: ${idFromStartParam}`);
-        currentDebugInfo.idFromStartParam = idFromStartParam;
-      }
-      
-      const params = new URLSearchParams(window.location.search);
-      const idFromQuery = params.get('contestId');
-      console.log(`[TWA] contestId from URL query (?contestId=): ${idFromQuery}`);
-      currentDebugInfo.idFromQuery = idFromQuery;
-      
-      const finalContestId = idFromStartParam || idFromQuery; // Prefer start_param if available
-
-      if (finalContestId) {
-        console.log(`[TWA] Using contestId: ${finalContestId}`);
-        setContestId(finalContestId);
-        currentDebugInfo.finalContestId = finalContestId;
+      if (actualContestIdToUse) {
+        console.log(`[TWA] Using contestId: ${actualContestIdToUse}`);
+        setContestId(actualContestIdToUse);
       } else {
         console.error("[TWA] contestId not found in start_param or URL query.");
         setError("ID конкурса не найден. Убедитесь, что вы перешли по правильной ссылке от бота.");
         setIsLoadingPage(false);
-        currentDebugInfo.error = "ID конкурса не найден.";
       }
     } else {
       console.error("[TWA] Telegram WebApp SDK not found. This page should be opened within Telegram.");
       setError("Пожалуйста, откройте эту страницу в приложении Telegram.");
       setIsLoadingPage(false);
-      currentDebugInfo.error = "Telegram WebApp SDK не найден.";
     }
-    setDebugInfo(currentDebugInfo);
   }, []);
 
   const fetchContestDetails = useCallback(async (id: string) => {
@@ -163,7 +155,7 @@ const TelegramContestParticipationWebApp: React.FC = () => {
         console.error(`[TWA] Contest with ID ${id} not found in DB.`);
         throw new Error("Конкурс не найден.");
       }
-      
+
       console.log('[TWA] Contest details fetched:', data);
       setContestDetails(data as ContestDetailsDB);
       const initialConditions: ContestConditionClientState[] = [];
@@ -183,16 +175,16 @@ const TelegramContestParticipationWebApp: React.FC = () => {
       }
       setConditionsState(initialConditions);
 
-    } catch (err: any) { 
+    } catch (err: any) {
       console.error(`[TWA] Error in fetchContestDetails: ${err.message}`);
       setError(`Ошибка загрузки деталей конкурса: ${err.message}`);
-    } finally { 
-      setIsLoadingPage(false); 
+    } finally {
+      setIsLoadingPage(false);
     }
   }, []);
 
   useEffect(() => { if (contestId) fetchContestDetails(contestId); }, [contestId, fetchContestDetails]);
-  
+
   const handleCheckCondition = async (index: number) => {
     const condition = conditionsState[index];
     if (!condition.targetLink || !telegramUser?.id || !supabase) return;
@@ -206,7 +198,7 @@ const TelegramContestParticipationWebApp: React.FC = () => {
 
       if (funcError) throw funcError;
       if (data.error) throw new Error(data.error);
-      
+
       console.log(`[TWA] Condition check result for "${condition.text}": ${data.met}`);
       setConditionsState(prev => prev.map((c, i) => i === index ? { ...c, isMet: data.met, isLoading: false } : c));
       window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(data.met ? 'light' : 'soft');
@@ -237,7 +229,7 @@ const TelegramContestParticipationWebApp: React.FC = () => {
       });
       if (funcError) throw funcError;
       if (data.error && data.error !== "User already participated.") throw new Error(data.error);
-      
+
       const message = data.message_to_user || (data.error === "User already participated." ? "Вы уже участвуете! 😉" : "🎉 Успешно зарегистрированы!");
       console.log(`[TWA] Participation result: ${message}`);
       setSuccessMessage(message);
@@ -252,7 +244,7 @@ const TelegramContestParticipationWebApp: React.FC = () => {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
       if (window.Telegram?.WebApp?.MainButton) {
         window.Telegram.WebApp.MainButton.hideProgress();
-        if (!successMessage) window.Telegram.WebApp.MainButton.enable(); 
+        if (!successMessage) window.Telegram.WebApp.MainButton.enable();
       }
     } finally {
       setIsRegistering(false);
@@ -262,7 +254,7 @@ const TelegramContestParticipationWebApp: React.FC = () => {
       }
     }
   }, [contestId, telegramUser, supabase, isRegistering, successMessage, contestDetails]);
-  
+
   useEffect(() => {
     const allConditionsMet = conditionsState.length === 0 || conditionsState.every(c => c.isMet === true);
     const tgMainButton = window.Telegram?.WebApp?.MainButton;
@@ -296,8 +288,10 @@ const TelegramContestParticipationWebApp: React.FC = () => {
   const hintColor = themeParams.hint_color || '#999999';
   const linkColor = themeParams.link_color || '#007aff';
   const buttonColor = themeParams.button_color || '#007aff';
+  const destructiveTextColor = themeParams.destructive_text_color || 'red';
 
-  if (isLoadingPage && !error) { // Show loader only if no error yet
+
+  if (isLoadingPage && !error && debugInfo.isTelegramWebAppDefined) {
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', p:2, bgcolor: bgColor }}>
             <CircularProgress sx={{color: buttonColor }} />
@@ -307,43 +301,77 @@ const TelegramContestParticipationWebApp: React.FC = () => {
                     Отладка:<br />
                     TG User ID: {debugInfo.telegramUserIdFromSDK || 'N/A'}<br />
                     TG Username: {debugInfo.telegramUsernameFromSDK || 'N/A'}<br />
-                    Contest ID (URL): {debugInfo.idFromQuery || 'N/A'}<br />
-                    Contest ID (start_param): {debugInfo.idFromStartParam || 'N/A'}<br />
                     Final Contest ID: {debugInfo.finalContestId || 'N/A'}<br />
                     TG SDK: {debugInfo.isTelegramWebAppDefined ? 'Определен' : 'НЕ ОПРЕДЕЛЕН'}<br />
-                    initDataUnsafe: {debugInfo.initDataUnsafe || 'N/A'}
+                    initDataUnsafe: {debugInfo.initDataUnsafe}
                 </Typography>
             </Paper>
         </Box>
     );
   }
 
+  const renderErrorPaper = (message: string | null) => (
+    <Paper elevation={1} sx={{p:2, mb:2, background: destructiveTextColor ? `color-mix(in srgb, ${destructiveTextColor} 10%, transparent)` : 'rgba(255,0,0,0.1)', border: `1px solid ${destructiveTextColor}`}}>
+      <Typography sx={{color: destructiveTextColor, fontWeight:'bold'}}>Ошибка</Typography>
+      <Typography sx={{color: destructiveTextColor}}>{message}</Typography>
+    </Paper>
+  );
+  
+  const renderDebugInfoPaper = () => (
+    <Paper elevation={0} sx={{p:1, mb: 2, background: secondaryBgColor, borderRadius: 1, maxWidth: '100%', overflowX: 'auto'}}>
+        <Typography variant="caption" sx={{color: hintColor, fontFamily:'monospace', whiteSpace: 'pre-wrap', fontSize: '0.7rem'}}>
+            Отладка:<br />
+            TG User ID: {debugInfo.telegramUserIdFromSDK || 'N/A'}<br />
+            TG Username: {debugInfo.telegramUsernameFromSDK || 'N/A'}<br />
+            Final Contest ID: {debugInfo.finalContestId || 'N/A'}<br />
+            TG SDK: {debugInfo.isTelegramWebAppDefined ? 'Определен' : 'НЕ ОПРЕДЕЛЕН'}<br />
+            initDataUnsafe: {debugInfo.initDataUnsafe}
+        </Typography>
+    </Paper>
+  );
+
+
   return (
     <Box sx={{ p: 2, fontFamily: 'sans-serif', color: textColor, background: bgColor, minHeight:'100vh' }}>
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-      {successMessage && <Alert severity="success" sx={{ mb: 2 }}>{successMessage}</Alert>}
-      
-       <Paper elevation={0} sx={{p:1, mb: 2, background: secondaryBgColor, borderRadius: 1, maxWidth: '100%', overflowX: 'auto'}}>
-            <Typography variant="caption" sx={{color: hintColor, fontFamily:'monospace', whiteSpace: 'pre-wrap', fontSize: '0.7rem'}}>
-                Отладка:<br />
-                TG User ID: {telegramUser?.id || debugInfo.telegramUserIdFromSDK || 'N/A'}<br />
-                TG Username: {telegramUser?.username || debugInfo.telegramUsernameFromSDK || 'N/A'}<br />
-                Final Contest ID: {contestId || debugInfo.finalContestId || 'N/A'}<br />
-                TG SDK: {window.Telegram?.WebApp ? 'Определен' : 'НЕ ОПРЕДЕЛЕН'}<br />
-                initDataUnsafe: {JSON.stringify(window.Telegram?.WebApp?.initDataUnsafe || {}, null, 2)}
-            </Typography>
-        </Paper>
+      {/* Handling for SDK not defined */}
+      {!debugInfo.isTelegramWebAppDefined && error && (
+        <>
+          {renderErrorPaper(error)}
+          {renderDebugInfoPaper()}
+          {renderErrorPaper(error)}
+        </>
+      )}
 
-      {contestDetails && !successMessage && (
+      {/* Handling for SDK defined but other errors */}
+      {debugInfo.isTelegramWebAppDefined && error && !successMessage && renderErrorPaper(error)}
+      
+      {/* Success Message */}
+      {successMessage &&
+        <Paper elevation={1} sx={{p:2, mb:2, background: buttonColor ? `color-mix(in srgb, ${buttonColor} 20%, transparent)` : 'rgba(0,128,0,0.1)', border: `1px solid ${buttonColor}`}}>
+           <Typography sx={{color: themeParams.button_text_color || 'green', fontWeight:'bold'}}>Успех!</Typography>
+           <Typography sx={{color: themeParams.button_text_color || 'green'}}>{successMessage}</Typography>
+        </Paper>
+      }
+
+      {/* Debug Info (if SDK is defined and no specific error is shown, or if explicitly desired) */}
+      {debugInfo.isTelegramWebAppDefined && (!error || successMessage) && renderDebugInfoPaper()}
+
+
+      {/* Contest Details (only if SDK defined, no success, and details available) */}
+      {debugInfo.isTelegramWebAppDefined && contestDetails && !successMessage && (
         <Paper elevation={0} sx={{ p: 2, borderRadius: 2, background: secondaryBgColor }}>
           <Typography variant="h5" component="h1" gutterBottom sx={{fontWeight: 'bold', color: textColor}}>
             {contestDetails.title}
           </Typography>
-          <Typography variant="body1" paragraph>
+          <Typography variant="body1" paragraph sx={{color: textColor}}>
             <strong>Приз:</strong> {contestDetails.prize}
           </Typography>
-          {(new Date(contestDetails.end_date) < new Date() || contestDetails.status !== 'active') && <Alert severity="warning" sx={{mb:2}}>Этот конкурс больше не активен.</Alert>}
-          
+          {(new Date(contestDetails.end_date) < new Date() || contestDetails.status !== 'active') &&
+            <Paper elevation={0} sx={{p:1, mb:2, background: destructiveTextColor ? `color-mix(in srgb, ${destructiveTextColor} 10%, transparent)` : 'rgba(255,165,0,0.1)', border: `1px solid ${destructiveTextColor}`}}>
+                <Typography sx={{color: destructiveTextColor}}>Этот конкурс больше не активен.</Typography>
+            </Paper>
+          }
+
           <Typography variant="body2" paragraph sx={{whiteSpace: 'pre-wrap', color: textColor}}>
             {contestDetails.description}
           </Typography>
@@ -361,21 +389,21 @@ const TelegramContestParticipationWebApp: React.FC = () => {
                         ) : condition.isMet === true ? (
                           <CheckCircleOutlineIcon sx={{ color: buttonColor }} />
                         ) : condition.isMet === false && !condition.isManuallyConfirmable ? (
-                          <HighlightOffIcon sx={{ color: themeParams.destructive_text_color || 'red' }} />
+                          <HighlightOffIcon sx={{ color: destructiveTextColor }} />
                         ) : condition.isMet === null && !condition.isManuallyConfirmable ? (
                           <HelpOutlineIcon sx={{ color: hintColor }} />
                         ): null}
                     </Box>
-                    
+
                     {condition.targetLink && !condition.isManuallyConfirmable && (
-                      <Button 
-                        variant="text" 
-                        size="small" 
-                        href={condition.targetLink.startsWith('@') ? `https://t.me/${condition.targetLink.substring(1)}` : condition.targetLink} 
+                      <Button
+                        variant="text"
+                        size="small"
+                        href={condition.targetLink.startsWith('@') ? `https://t.me/${condition.targetLink.substring(1)}` : condition.targetLink}
                         target="_blank"
                         onClick={condition.isMet === null ? () => handleCheckCondition(index) : undefined}
                         disabled={condition.isLoading || condition.isMet === true}
-                        sx={{ mt: 1, fontSize: '0.8rem', py: '2px', px: '8px', color: linkColor, '&:hover': {background: 'rgba(0,0,0,0.05)'} }}
+                        sx={{ mt: 1, fontSize: '0.8rem', py: '2px', px: '8px', color: linkColor, '&:hover': {background: `color-mix(in srgb, ${linkColor} 10%, transparent)`} }}
                       >
                         {condition.isMet === null ? 'Перейти и Проверить' : condition.isMet === true ? 'Выполнено' : 'Перейти и Выполнить'}
                       </Button>
@@ -387,7 +415,7 @@ const TelegramContestParticipationWebApp: React.FC = () => {
                                 checked={condition.isMet || false}
                                 onChange={(e) => handleManualConfirmChange(index, e.target.checked)}
                                 disabled={condition.isLoading}
-                                sx={{color: linkColor, '&.Mui-checked': {color: linkColor} }}
+                                sx={{color: linkColor, '&.Mui-checked': {color: linkColor}, '&.Mui-disabled': {color: hintColor} }}
                             />
                             }
                             label="Я выполнил(а)"
@@ -401,8 +429,12 @@ const TelegramContestParticipationWebApp: React.FC = () => {
           )}
         </Paper>
       )}
-      {!contestDetails && !isLoadingPage && error && (
-        <Alert severity="error" sx={{m:2}}>{error}</Alert>
+
+      {/* Fallback for "No contest details" if SDK is defined but something went wrong fetching */}
+      {debugInfo.isTelegramWebAppDefined && !contestDetails && !isLoadingPage && !error && !successMessage && (
+         <Paper elevation={0} sx={{p:1, mt: 2, background: secondaryBgColor, borderRadius: 1, maxWidth: '100%', overflowX: 'auto'}}>
+          <Typography sx={{color: textColor, textAlign: 'center'}}>Информация о конкурсе не загружена. Возможно, неверный ID или конкурс был удален.</Typography>
+         </Paper>
       )}
     </Box>
   );

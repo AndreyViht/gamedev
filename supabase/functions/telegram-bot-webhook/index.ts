@@ -71,21 +71,25 @@ serve(async (req: Request) => {
     const telegramBotToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
     const projectDomain = Deno.env.get('YOUR_PROJECT_DOMAIN');
 
+    // Log environment variables
+    console.log(`[telegram-bot-webhook] TELEGRAM_BOT_TOKEN from env: ${telegramBotToken ? 'SET' : 'NOT SET'}`);
+    console.log(`[telegram-bot-webhook] YOUR_PROJECT_DOMAIN from env: ${projectDomain || 'NOT SET'}`);
+
+
     if (!telegramBotToken) console.error('[telegram-bot-webhook] CRITICAL ENV VAR MISSING: TELEGRAM_BOT_TOKEN');
     if (!projectDomain) console.error('[telegram-bot-webhook] CRITICAL ENV VAR MISSING: YOUR_PROJECT_DOMAIN');
 
     if (!telegramBotToken || !projectDomain) {
       console.error('[telegram-bot-webhook] Aborting due to missing critical environment variables.');
       return new Response(JSON.stringify({ error: 'Server configuration error: Missing critical credentials for bot webhook.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500, // Should be 500 for server misconfig
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500,
       });
     }
     console.log('[telegram-bot-webhook] Environment variables (TELEGRAM_BOT_TOKEN, YOUR_PROJECT_DOMAIN) existence checked.');
 
     let update: TelegramUpdate;
     try {
-        // req.json() consumes the body. Use the original req here.
-        update = await req.json(); // This is where the original request body is consumed
+        update = await req.json(); 
         console.log(`[telegram-bot-webhook] Successfully parsed JSON from original request. Update ID: ${update.update_id}, Message Text (if any): ${update.message?.text?.substring(0,50)}...`);
     } catch (jsonParseError) {
         console.error(`[telegram-bot-webhook] JSON PARSE ERROR on original request: ${jsonParseError.message}. Raw body logged earlier (from clone attempt): ${rawBodyTextForDebug}`);
@@ -106,6 +110,8 @@ serve(async (req: Request) => {
         
         if (contestId) {
           console.log(`[telegram-bot-webhook] Extracted contestId: ${contestId}`);
+          // Log the exact projectDomain being used
+          console.log(`[telegram-bot-webhook] Using projectDomain for URL: ${projectDomain}`);
           const webAppUrl = `https://${projectDomain}/telegram-webapp/contest-participation?contestId=${contestId}`;
           console.log(`[telegram-bot-webhook] Generated Web App URL: ${webAppUrl}`);
           
@@ -122,7 +128,7 @@ serve(async (req: Request) => {
             }
           };
 
-          console.log(`[telegram-bot-webhook] Sending message to Telegram API. Chat ID: ${chatId}, URL: ${webAppUrl.substring(0,50)}...`);
+          console.log(`[telegram-bot-webhook] Sending message to Telegram API. Chat ID: ${chatId}, URL for web_app: ${webAppUrl}`);
           const tgResponse = await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -152,8 +158,6 @@ serve(async (req: Request) => {
 
   } catch (error) {
     console.error(`[telegram-bot-webhook] CATCH block error (outer try): ${error.message}`, error);
-    // It's crucial to return 200 OK to Telegram to prevent webhook retries, even on server error.
-    // Telegram considers non-200 responses as failures and will retry.
     return new Response(JSON.stringify({ error: 'Internal server error processing update. Check function logs for details.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200, 
     });

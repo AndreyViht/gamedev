@@ -4,6 +4,7 @@ import { UserProfile, UserIdentity } from '../../types'; // UserIdentity should 
 import { supabase } from '../../api/clients';
 import { Box, TextField, Button, Typography, Paper, Alert, CircularProgress, Grid, Divider } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google'; // For Google Link button
+import TelegramIcon from '@mui/icons-material/Telegram'; // Added
 import { APP_NAME } from '../../config/constants'; // Added import for APP_NAME
 
 interface AppSettingsSectionProps {
@@ -24,6 +25,7 @@ export const AppSettingsSection: React.FC<AppSettingsSectionProps> = ({ user, sh
   const [loadingEmail, setLoadingEmail] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
   const [linkingGoogle, setLinkingGoogle] = useState(false);
+  const [linkingTelegram, setLinkingTelegram] = useState(false); // Added
 
   useEffect(() => {
     setNewEmail(user.email || '');
@@ -174,6 +176,18 @@ export const AppSettingsSection: React.FC<AppSettingsSectionProps> = ({ user, sh
     }
   };
 
+  const handleLinkTelegramAccount = () => {
+    // Placeholder for Telegram linking logic
+    clearMessages();
+    setLinkingTelegram(true);
+    setTimeout(() => {
+      showToast("Связывание с Telegram скоро будет доступно!", "info");
+      // setError("Связывание с Telegram скоро будет доступно!"); // Using setError for now as showToast is not passed
+      setLinkingTelegram(false);
+    }, 1500);
+  };
+  // Check if user is linked with Telegram (placeholder logic)
+  const isLinkedWithTelegram = !!user.user_metadata?.telegram_id; // Assuming telegram_id is stored in user_metadata
 
   return (
     <Box className="app-settings-section">
@@ -241,31 +255,61 @@ export const AppSettingsSection: React.FC<AppSettingsSectionProps> = ({ user, sh
         </Grid>
         
         <Grid item xs={12} md={6}>
-            <Paper component="section" className="settings-block" sx={{p:2, height: '100%'}} aria-labelledby="link-google-heading">
-                <Typography variant="h6" component="h3" id="link-google-heading" gutterBottom sx={{fontSize: '1.1rem', mb: 1.5}}>Синхронизация с Google</Typography>
-                {isLinkedWithGoogle ? (
-                    <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
-                        <GoogleIcon color="success" />
-                        <Typography variant="body2">
-                            Аккаунт Google связан.
-                            {googleIdentity?.identity_data?.email && ` (${googleIdentity.identity_data.email})`}
-                        </Typography>
-                    </Box>
-                ) : (
-                    <>
-                        <Typography variant="body2" sx={{mb: 1.5}}>
-                            Свяжите ваш аккаунт {APP_NAME} с Google для удобного входа через Google.
-                        </Typography>
-                        <Button 
-                            variant="outlined" 
-                            startIcon={<GoogleIcon />} 
-                            onClick={handleLinkGoogleAccount}
-                            disabled={linkingGoogle}
-                        >
-                            {linkingGoogle ? <CircularProgress size={22} /> : 'Связать аккаунт Google'}
-                        </Button>
-                    </>
-                )}
+            <Paper component="section" className="settings-block" sx={{p:2, height: '100%'}} aria-labelledby="link-accounts-heading">
+                <Typography variant="h6" component="h3" id="link-accounts-heading" gutterBottom sx={{fontSize: '1.1rem', mb: 1.5}}>Синхронизация Аккаунтов</Typography>
+                
+                {/* Google Link */}
+                <Box sx={{mb: 2}}>
+                    {isLinkedWithGoogle ? (
+                        <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
+                            <GoogleIcon color="success" />
+                            <Typography variant="body2">
+                                Аккаунт Google связан.
+                                {googleIdentity?.identity_data?.email && ` (${googleIdentity.identity_data.email})`}
+                            </Typography>
+                        </Box>
+                    ) : (
+                        <>
+                            <Typography variant="body2" sx={{mb: 1}}>
+                                Свяжите ваш аккаунт {APP_NAME} с Google для удобного входа.
+                            </Typography>
+                            <Button 
+                                variant="outlined" 
+                                startIcon={<GoogleIcon />} 
+                                onClick={handleLinkGoogleAccount}
+                                disabled={linkingGoogle}
+                            >
+                                {linkingGoogle ? <CircularProgress size={22} /> : 'Связать с Google'}
+                            </Button>
+                        </>
+                    )}
+                </Box>
+                <Divider sx={{my: 2}}/>
+                {/* Telegram Link */}
+                <Box>
+                     {isLinkedWithTelegram ? (
+                        <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
+                            <TelegramIcon color="success" />
+                            <Typography variant="body2">
+                                Аккаунт Telegram связан. (ID: {user.user_metadata.telegram_id})
+                            </Typography>
+                        </Box>
+                    ) : (
+                        <>
+                            <Typography variant="body2" sx={{mb: 1}}>
+                                Свяжите ваш аккаунт {APP_NAME} с Telegram для получения уведомлений и других функций.
+                            </Typography>
+                            <Button 
+                                variant="outlined" 
+                                startIcon={<TelegramIcon />} 
+                                onClick={handleLinkTelegramAccount}
+                                disabled={linkingTelegram}
+                            >
+                                {linkingTelegram ? <CircularProgress size={22} /> : 'Связать с Telegram'}
+                            </Button>
+                        </>
+                    )}
+                </Box>
             </Paper>
         </Grid>
       </Grid>

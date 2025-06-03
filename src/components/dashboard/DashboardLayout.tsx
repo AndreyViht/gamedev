@@ -22,6 +22,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import IconButton from '@mui/material/IconButton';
+import TelegramIcon from '@mui/icons-material/Telegram'; // Added TelegramIcon
 
 
 interface DashboardLayoutProps {
@@ -39,10 +40,12 @@ interface SiteAdContent { title: string; description: string; url: string; activ
 const SIDEBAR_LOGO_ICON = '🚀'; 
 
 // Define a type for menu items to handle the admin redirect case explicitly
+type DashboardNavigationTarget = DashboardSection | 'ADMIN_DASHBOARD_NAV_ACTION' | 'TELEGRAM_FEATURES_NAV_ACTION';
+
 interface DashboardMenuItem {
   text: string;
   icon: React.ReactNode; 
-  section: DashboardSection | 'ADMIN_DASHBOARD_NAV_ACTION'; // Unique string literal for admin nav
+  target: DashboardNavigationTarget;
 }
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
@@ -95,14 +98,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   useEffect(() => { fetchSiteAdContent(); }, [fetchSiteAdContent]);
 
   const menuItems: DashboardMenuItem[] = [
-    { text: 'Аккаунт', icon: <AccountCircleIcon />, section: DashboardSection.Account },
-    { text: 'Viht ИИ', icon: <ChatIcon />, section: DashboardSection.AIChat },
-    { text: 'Реклама и Услуги', icon: <StorefrontIcon />, section: DashboardSection.ServicesAndAds },
-    { text: 'Настройки', icon: <SettingsApplicationsIcon />, section: DashboardSection.AppSettings },
-    { text: 'Помощь', icon: <HelpOutlineIcon />, section: DashboardSection.HelpChat },
+    { text: 'Аккаунт', icon: <AccountCircleIcon />, target: DashboardSection.Account },
+    { text: 'Viht ИИ', icon: <ChatIcon />, target: DashboardSection.AIChat },
+    { text: 'Реклама и Услуги', icon: <StorefrontIcon />, target: DashboardSection.ServicesAndAds },
+    { text: 'Telegram Функции', icon: <TelegramIcon />, target: 'TELEGRAM_FEATURES_NAV_ACTION' }, // Added
+    { text: 'Настройки', icon: <SettingsApplicationsIcon />, target: DashboardSection.AppSettings },
+    { text: 'Помощь', icon: <HelpOutlineIcon />, target: DashboardSection.HelpChat },
   ];
   if (isUserAdmin(user)) {
-    menuItems.push({ text: 'Управление', icon: <AdminPanelSettingsIcon />, section: 'ADMIN_DASHBOARD_NAV_ACTION' });
+    menuItems.push({ text: 'Управление', icon: <AdminPanelSettingsIcon />, target: 'ADMIN_DASHBOARD_NAV_ACTION' });
   }
 
   const handleAdClick = async (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
@@ -139,8 +143,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding sx={{ display: 'block' }}>
             <ListItemButton
-              selected={item.section !== 'ADMIN_DASHBOARD_NAV_ACTION' && currentSection === item.section}
-              onClick={() => item.section === 'ADMIN_DASHBOARD_NAV_ACTION' ? onNavigateGlobal(View.AdminDashboard) : onNavigateSection(item.section as DashboardSection)}
+              selected={currentSection === item.target}
+              onClick={() => {
+                if (item.target === 'ADMIN_DASHBOARD_NAV_ACTION') {
+                    onNavigateGlobal(View.AdminDashboard);
+                } else if (item.target === 'TELEGRAM_FEATURES_NAV_ACTION') {
+                    onNavigateGlobal(View.TelegramFeatures);
+                }
+                 else {
+                    onNavigateSection(item.target as DashboardSection);
+                }
+              }}
               sx={{
                 minHeight: 44, // Reduced
                 justifyContent: isIconicSidebar ? 'center' : 'initial',

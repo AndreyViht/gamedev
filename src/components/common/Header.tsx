@@ -7,7 +7,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import LoginIcon from '@mui/icons-material/Login';
 import AppRegistrationIcon from '@mui/icons-material/AppRegistration';
-import TelegramIcon from '@mui/icons-material/Telegram'; // Import Telegram icon
+// import TelegramIcon from '@mui/icons-material/Telegram'; // Import Telegram icon - Removed as button is moved
 
 import { View } from '../../enums/appEnums';
 import { Theme as ThemeType, PersonalizationSettings } from '../../types';
@@ -61,16 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
           {APP_NAME}
         </Typography>
         
-        <Button 
-          color={personalizationSettings.headerFill ? 'inherit' : 'primary'}
-          variant={personalizationSettings.headerFill ? "text" : "text"} // Keep text for less emphasis than login/register
-          startIcon={<TelegramIcon />} 
-          onClick={() => onNavigate(View.TelegramFeatures)} 
-          sx={{ mr: 1, textTransform: 'none', fontWeight: 500 }}
-          aria-label="Функции Телеграмм"
-        >
-          Для телеграмм
-        </Button>
+        {/* Button "Для телеграмм" removed from here */}
 
         <IconButton sx={{ ml: 1, color: personalizationSettings.headerFill ? muiTheme.palette.primary.contrastText : 'inherit' }} onClick={onToggleTheme} color="inherit" aria-label={`Переключить на ${theme === 'light' ? 'темную' : 'светлую'} тему`}>
           {theme === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}

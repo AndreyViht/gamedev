@@ -5,9 +5,12 @@ import { supabase } from '../../api/clients';
 import { APP_NAME } from '../../config/constants';
 import { Box, TextField, Button, Typography, Paper, Link as MuiLink, CircularProgress, Alert, Divider, IconButton } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
+import TelegramIcon from '@mui/icons-material/Telegram'; // Added
 
 interface LoginPageProps {
   onNavigate: (view: View) => void;
+  // showToast prop might be needed if we implement placeholder logic
+  // showToast: (message: string, type: 'success' | 'error' | 'info') => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
@@ -16,6 +19,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [telegramLoading, setTelegramLoading] = useState(false); // Added
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +73,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     }
   };
 
+  const handleTelegramSignIn = () => {
+    // Placeholder for Telegram sign-in logic
+    setError('');
+    setTelegramLoading(true);
+    // Simulate API call or widget interaction
+    setTimeout(() => {
+      // For now, just show an info message.
+      // In future, this would trigger Telegram Login Widget or OAuth flow.
+      // showToast("Вход через Telegram скоро будет доступен!", "info");
+      setError("Вход через Telegram скоро будет доступен!"); // Using setError for now as showToast is not passed
+      setTelegramLoading(false);
+    }, 1500);
+  };
+
   return (
     <Box className="auth-page">
       <Paper component="section" className="auth-container" elevation={3} sx={{p: {xs: 2, sm: 4}}}>
@@ -88,7 +106,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            disabled={loading || googleLoading}
+            disabled={loading || googleLoading || telegramLoading}
             aria-required="true"
           />
           <TextField
@@ -102,7 +120,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            disabled={loading || googleLoading}
+            disabled={loading || googleLoading || telegramLoading}
             aria-required="true"
           />
           <Button
@@ -110,7 +128,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             fullWidth
             variant="contained"
             sx={{ mt: 3, mb: 1.5, py: 1.5, borderRadius: 'var(--border-radius-large)', fontWeight: 600 }}
-            disabled={loading || googleLoading}
+            disabled={loading || googleLoading || telegramLoading}
           >
             {loading ? <CircularProgress size={24} color="inherit" /> : 'Войти'}
           </Button>
@@ -119,26 +137,40 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             <Typography variant="caption" color="text.secondary">ИЛИ</Typography>
           </Divider>
 
-          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 2 }}>
             <IconButton
               aria-label="Войти с Google"
               onClick={handleGoogleSignIn}
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || telegramLoading}
               sx={{ 
                 border: '1px solid var(--border-color)', 
                 color: 'text.primary',
                 '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
-                p: 1.5 // Adjust padding for IconButton
+                p: 1.5 
               }}
               title="Войти с Google"
             >
               {googleLoading ? <CircularProgress size={24} /> : <GoogleIcon />}
             </IconButton>
+            <IconButton // New Telegram Login Button
+              aria-label="Войти с Telegram"
+              onClick={handleTelegramSignIn}
+              disabled={loading || googleLoading || telegramLoading}
+              sx={{ 
+                border: '1px solid var(--border-color)', 
+                color: 'text.primary', // Or a specific Telegram blue
+                '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+                p: 1.5 
+              }}
+              title="Войти с Telegram"
+            >
+              {telegramLoading ? <CircularProgress size={24} /> : <TelegramIcon />}
+            </IconButton>
           </Box>
 
           <Typography variant="body2" align="center" className="auth-switch">
             Нет аккаунта?{' '}
-            <MuiLink component="button" variant="body2" onClick={() => onNavigate(View.Register)} disabled={loading || googleLoading} sx={{fontWeight: 500}}>
+            <MuiLink component="button" variant="body2" onClick={() => onNavigate(View.Register)} disabled={loading || googleLoading || telegramLoading} sx={{fontWeight: 500}}>
               Зарегистрироваться
             </MuiLink>
           </Typography>
