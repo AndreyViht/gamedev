@@ -97,7 +97,7 @@ export const AdminSiteStatsSection: React.FC<AdminSiteStatsSectionProps> = ({ cu
     }, [fetchStats]);
 
     const StatCard: React.FC<{ title: string; value: number | string | null; icon: React.ReactNode; note?: string }> = ({ title, value, icon, note }) => (
-        <Grid item={true} xs={12} sm={6} md={4}>
+        <Grid xs={12} sm={6} md={4}>
             <Paper sx={{ p: 2.5, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', borderRadius: 'var(--border-radius)' }} elevation={2}>
                 <Box sx={{ fontSize: '2.5rem', color: 'primary.main', mb: 1 }}>{icon}</Box>
                 <Typography variant="h6" component="h3" gutterBottom sx={{textAlign: 'center'}}>{title}</Typography>

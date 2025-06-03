@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
 import { View } from '../../enums/appEnums';
 import { supabase } from '../../api/clients';
 import { APP_NAME } from '../../config/constants';
-import { Box, TextField, Button, Typography, Paper, Link as MuiLink, CircularProgress, Alert } from '@mui/material';
+import { Box, TextField, Button, Typography, Paper, Link as MuiLink, CircularProgress, Alert, Divider, IconButton } from '@mui/material';
+import GoogleIcon from '@mui/icons-material/Google';
 
 interface LoginPageProps {
   onNavigate: (view: View) => void;
@@ -13,6 +15,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +46,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setGoogleLoading(true);
+    if (!supabase) {
+      setError("Клиент Supabase не инициализирован.");
+      setGoogleLoading(false);
+      return;
+    }
+    try {
+      const { error: googleError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+      });
+      if (googleError) {
+        setError(googleError.message || "Ошибка входа через Google.");
+      }
+      // Supabase handles redirection. If successful, onAuthStateChange in App.tsx will manage session.
+    } catch (err: any) {
+      setError(err.message || "Непредвиденная ошибка при входе через Google.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <Box className="auth-page">
       <Paper component="section" className="auth-container" elevation={3} sx={{p: {xs: 2, sm: 4}}}>
@@ -62,7 +88,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            disabled={loading}
+            disabled={loading || googleLoading}
             aria-required="true"
           />
           <TextField
@@ -76,21 +102,43 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
+            disabled={loading || googleLoading}
             aria-required="true"
           />
           <Button
             type="submit"
             fullWidth
             variant="contained"
-            sx={{ mt: 3, mb: 2, py: 1.5, borderRadius: 'var(--border-radius-large)', fontWeight: 600 }}
-            disabled={loading}
+            sx={{ mt: 3, mb: 1.5, py: 1.5, borderRadius: 'var(--border-radius-large)', fontWeight: 600 }}
+            disabled={loading || googleLoading}
           >
             {loading ? <CircularProgress size={24} color="inherit" /> : 'Войти'}
           </Button>
+          
+          <Divider sx={{ my: 2.5 }}>
+            <Typography variant="caption" color="text.secondary">ИЛИ</Typography>
+          </Divider>
+
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+            <IconButton
+              aria-label="Войти с Google"
+              onClick={handleGoogleSignIn}
+              disabled={loading || googleLoading}
+              sx={{ 
+                border: '1px solid var(--border-color)', 
+                color: 'text.primary',
+                '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+                p: 1.5 // Adjust padding for IconButton
+              }}
+              title="Войти с Google"
+            >
+              {googleLoading ? <CircularProgress size={24} /> : <GoogleIcon />}
+            </IconButton>
+          </Box>
+
           <Typography variant="body2" align="center" className="auth-switch">
             Нет аккаунта?{' '}
-            <MuiLink component="button" variant="body2" onClick={() => onNavigate(View.Register)} disabled={loading} sx={{fontWeight: 500}}>
+            <MuiLink component="button" variant="body2" onClick={() => onNavigate(View.Register)} disabled={loading || googleLoading} sx={{fontWeight: 500}}>
               Зарегистрироваться
             </MuiLink>
           </Typography>

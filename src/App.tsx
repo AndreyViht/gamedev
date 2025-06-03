@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import type { User, Session, AuthChangeEvent, Subscription } from '@supabase/supabase-js';
+import type { AuthUser as SupabaseAuthUser, AuthSession as SupabaseSession, AuthStateChangeEvent as SupabaseAuthChangeEvent, AuthSubscription as SupabaseSubscription } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
 
 import { ThemeProvider, createTheme, CssBaseline, Box, Fab, CircularProgress, Typography, Alert as MuiAlert } from '@mui/material';
@@ -35,6 +34,8 @@ import { AdminSiteStatsSection } from './components/admin/stats/AdminSiteStatsSe
 import { AdminSupportChatsSection } from './components/admin/support/AdminSupportChatsSection';
 import { AdminAdvertisingSettingsSection } from './components/admin/advertising/AdminAdvertisingSettingsSection';
 import { AdminOnSiteAdManagementSection } from './components/admin/advertising/AdminOnSiteAdManagementSection'; 
+import { AdminTelegramContestsSection } from './components/admin/telegram_contests/AdminTelegramContestsSection'; // Added
+import { TelegramFeaturesPage } from './components/telegram/TelegramFeaturesPage'; // New import
 import { ToastNotification, ToastConfig } from './components/common/ToastNotification';
 import { PersonalizationModal } from './components/common/PersonalizationModal';
 import { LegalInfoModal } from './components/common/LegalInfoModal';
@@ -131,7 +132,7 @@ export const App: React.FC = () => {
   const [placeholderNewsItems] = useState<NewsItem[]>(getRandomNews()); 
   const [placeholderProjectItems] = useState<ProjectItem[]>(getPlaceholderProjects());
   
-  const [sessionState, setSessionState] = useState<Session | null>(null);
+  const [sessionState, setSessionState] = useState<SupabaseSession | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [guestAiRequestsMade, setGuestAiRequestsMade] = useState(() => getStoredJson<number>(LS_KEY_GUEST_AI_REQUESTS, 0, (v): v is number => typeof v === 'number'));
@@ -271,22 +272,40 @@ export const App: React.FC = () => {
     setDisplayedProjectItems(projectsForLanding);
   }, [dbProjects]);
 
-  const processUserSessionLogic = useCallback(async (userToProcessParam: User | UserProfile | null, isNewSignInEvent: boolean = false): Promise<UserProfile | null> => {
+  const processUserSessionLogic = useCallback(async (userToProcessParam: SupabaseAuthUser | UserProfile | null, isNewSignInEvent: boolean = false): Promise<UserProfile | null> => {
     if (!userToProcessParam || !supabase) { return userToProcessParam as UserProfile | null; }
     
-    const baseUser = userToProcessParam as User;
-    const existingProfileData = (userToProcessParam as UserProfile).user_metadata ? (userToProcessParam as UserProfile).user_metadata : {};
+    const baseUser = userToProcessParam as SupabaseAuthUser; // Treat as SupabaseAuthUser initially
+    
+    // Try to get existing UserProfile data if userToProcessParam was already a UserProfile
+    const existingProfileData = (userToProcessParam as UserProfile).user_metadata 
+                                  ? (userToProcessParam as UserProfile).user_metadata 
+                                  : (baseUser.user_metadata || {});
     
     const userToProcess: UserProfile = {
-        ...baseUser,
-        user_metadata: { ...baseUser.user_metadata, ...existingProfileData }, 
-    };
+        ...(baseUser as Omit<SupabaseAuthUser, 'user_metadata'>), // Cast baseUser to ensure correct properties are spread
+        user_metadata: { // Start with Supabase's user_metadata, then layer our specific app data
+            ...baseUser.user_metadata, 
+            ...existingProfileData,
+        },
+    } as UserProfile; // Assert to UserProfile after constructing
     
-    const metadata = userToProcess.user_metadata || {};
+    const metadata = userToProcess.user_metadata; // metadata is now CustomUserMetadata
     
     let needsServerUpdate = false;
     const now = new Date();
     const todayDateString = now.toISOString().split('T')[0];
+
+    // Handle display_name: if our app's display_name is not set, try to use full_name from OAuth (e.g., Google)
+    // Supabase user_metadata might contain 'full_name' from OAuth.
+    if (!metadata.display_name && (baseUser.user_metadata as any)?.full_name) {
+        metadata.display_name = (baseUser.user_metadata as any)?.full_name;
+        needsServerUpdate = true;
+    } else if (!metadata.display_name) { // Fallback if full_name is also missing
+        metadata.display_name = userToProcess.email?.split('@')[0] || "Пользователь";
+        needsServerUpdate = true;
+    }
+
 
     let isAdminMatch = false;
     for (const adminCred of ADMIN_USERS) {
@@ -305,7 +324,6 @@ export const App: React.FC = () => {
     }
     
     if (!metadata.client_key) { metadata.client_key = generateClientKey(); needsServerUpdate = true; }
-    if (!metadata.display_name) { metadata.display_name = userToProcess.email?.split('@')[0] || "Пользователь"; needsServerUpdate = true; }
     
     metadata.activity_points = typeof metadata.activity_points === 'number' ? metadata.activity_points : 0;
     metadata.awarded_achievement_points_log = metadata.awarded_achievement_points_log || {};
@@ -336,17 +354,15 @@ export const App: React.FC = () => {
     for (const taskDef of dailyTasksList) {
         let userTask = currentDailyTasks.find(ut => ut.task_id === taskDef.id);
         if (userTask) {
-            // Ensure AI fields exist if not present from older data structures
             userTask.ai_generated_name = userTask.ai_generated_name ?? undefined;
             userTask.ai_generated_description = userTask.ai_generated_description ?? undefined;
             userTask.ai_generated_points = userTask.ai_generated_points ?? undefined;
             userTask.is_ai_refreshed = userTask.is_ai_refreshed ?? false;
             userTask.claimed_at_timestamp = userTask.claimed_at_timestamp ?? undefined;
 
-            if (userTask.last_progress_date !== todayDateString && !userTask.claimed_at_timestamp) { // Reset if new day AND not currently in cooldown
+            if (userTask.last_progress_date !== todayDateString && !userTask.claimed_at_timestamp) { 
                 userTask.current_value = 0; userTask.completed_today = false; userTask.claimed_today = false;
                 userTask.last_progress_date = todayDateString; 
-                // Don't reset AI generated content here, it resets after timer
                 tasksUpdated = true;
             }
             processedTaskProgress.push(userTask);
@@ -366,7 +382,7 @@ export const App: React.FC = () => {
 
     const achievementsToProcessImmediately = [
         { id: 'pioneer', condition: isNewSignInEvent },
-        { id: 'platform_demiurge', condition: isUserAdmin({ ...userToProcess, user_metadata: metadata } as UserProfile) },
+        { id: 'platform_demiurge', condition: isUserAdmin({ ...userToProcess } as UserProfile) }, // Pass the constructed UserProfile
         { id: 'premium_supporter', condition: metadata.is_premium === true }
     ];
 
@@ -398,12 +414,25 @@ export const App: React.FC = () => {
     
     if (needsServerUpdate) {
         try {
-            const { data: updatedUserData, error: updateError } = await supabase.auth.updateUser({ data: metadata });
+            const updatePayload = { ...metadata }; // Only update the metadata part
+
+            const { data: updatedUserData, error: updateError } = await supabase.auth.updateUser({ data: updatePayload });
             if (updateError) {
+                console.error("Error updating user metadata during session processing:", updateError);
+                // Return the user object with the locally modified metadata, as server update failed
                 return { ...userToProcess, user_metadata: metadata } as UserProfile; 
             }
-            return updatedUserData?.user as UserProfile || { ...userToProcess, user_metadata: metadata } as UserProfile;
+            // Supabase returns the updated user. Merge it with our UserProfile structure.
+            const supabaseReturnedUser = updatedUserData?.user;
+            if (supabaseReturnedUser) {
+                return {
+                     ...(supabaseReturnedUser as Omit<SupabaseAuthUser, 'user_metadata'>),
+                     user_metadata: { ...supabaseReturnedUser.user_metadata, ...updatePayload } as UserProfile['user_metadata']
+                } as UserProfile;
+            }
+            return { ...userToProcess, user_metadata: metadata } as UserProfile;
         } catch (e) {
+            console.error("Exception updating user metadata during session processing:", e);
             return { ...userToProcess, user_metadata: metadata } as UserProfile; 
         }
     }
@@ -473,7 +502,7 @@ export const App: React.FC = () => {
     fetchNewsFromSupabase(); 
     fetchProjectsFromSupabase();
 
-    let authListener: Subscription | undefined;
+    let authListener: SupabaseSubscription | undefined;
 
     const getActiveSessionAndSubscribe = async () => {
       setLoadingSession(true);
@@ -481,7 +510,7 @@ export const App: React.FC = () => {
         const { data: { session: activeSession }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw sessionError; 
         
-        let currentUserAuth = activeSession?.user as User | null;
+        let currentUserAuth = activeSession?.user as SupabaseAuthUser | null;
         let processedCurrentUser: UserProfile | null = null;
         if (currentUserAuth) {
             processedCurrentUser = await processUserSessionLogic(currentUserAuth, false); 
@@ -497,12 +526,12 @@ export const App: React.FC = () => {
           setInitialDataLoaded(true); 
       }
 
-      const { data: authListenerData } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, newSession: Session | null) => {
+      const { data: authListenerData } = supabase.auth.onAuthStateChange(async (event: SupabaseAuthChangeEvent, newSession: SupabaseSession | null) => {
         setLoadingSession(true); 
         try {
-            let authChangeUserAuth = newSession?.user as User | null;
+            let authChangeUserAuth = newSession?.user as SupabaseAuthUser | null;
             let processedAuthChangeUser: UserProfile | null = null;
-            const isNewSignInEvent = event === 'SIGNED_IN' && (!sessionState || !sessionState.user || sessionState.user.id !== newSession?.user.id);
+            const isNewSignInEvent = event === 'SIGNED_IN' && (!sessionState || !sessionState.user || sessionState.user.id !== newSession?.user?.id);
             
             if (authChangeUserAuth) {
                 processedAuthChangeUser = await processUserSessionLogic(authChangeUserAuth, isNewSignInEvent);
@@ -511,9 +540,8 @@ export const App: React.FC = () => {
             setUser(processedAuthChangeUser); 
             setSessionState(newSession); 
             
-            // Navigation logic moved to the second useEffect
             if (event === 'PASSWORD_RECOVERY') {
-                 setCurrentView(View.Login); // Use setCurrentView directly
+                 setCurrentView(View.Login); 
                  showToast("Введите новый пароль или следуйте инструкциям, если вы запросили сброс.", "info");
             } else if (event === 'SIGNED_OUT') {
                 const lastUserId = sessionState?.user?.id; 
@@ -545,13 +573,13 @@ export const App: React.FC = () => {
         if (user) { 
             if (!visitedBefore) localStorage.setItem(LS_KEY_HAS_VISITED_BEFORE, 'true');
             
-            if (currentView === View.Login || currentView === View.Register || currentView === View.AIChatGuest || currentView === View.VersionHistory) {
+            if (currentView === View.Login || currentView === View.Register || currentView === View.AIChatGuest || currentView === View.VersionHistory || currentView === View.TelegramFeatures) {
                 handleNavigation(View.Dashboard);
             } else if (currentView === View.AdminDashboard && !isUserAdmin(user)) {
                  handleNavigation(View.Dashboard);
             }
         } else { 
-            const allowedGuestViews = [View.Landing, View.Login, View.Register, View.AIChatGuest, View.VersionHistory];
+            const allowedGuestViews = [View.Landing, View.Login, View.Register, View.AIChatGuest, View.VersionHistory, View.TelegramFeatures];
             if (!allowedGuestViews.includes(currentView)) {
                 handleNavigation(View.Landing);
             }
@@ -571,12 +599,6 @@ export const App: React.FC = () => {
                 const elapsed = (Date.now() - tp.claimed_at_timestamp) / 1000;
                 if (elapsed >= 24 * 60 * 60) { // Timer expired
                     needsUpdate = true;
-                    // We will rely on AccountSection's useEffect to handle the AI call and actual reset,
-                    // but we can mark it for update here by changing last_progress_date or a similar flag
-                    // to ensure AccountSection's logic picks it up even if it wasn't already "running" a timer.
-                    // For simplicity, AccountSection's timer logic should handle this naturally on load.
-                    // This effect is more of a trigger if AccountSection isn't already handling it.
-                    // However, given AccountSection's useEffect on daily_task_progress, it should.
                 }
             } else if(tp.last_progress_date !== todayDateString) { // New day, reset non-cooldown tasks
                 needsUpdate = true;
@@ -585,8 +607,9 @@ export const App: React.FC = () => {
             return tp;
         });
         if(needsUpdate) {
-            // console.log("App.tsx: Detected tasks needing refresh/reset on load.");
-            // updateUserProfile({daily_task_progress: updatedTasksProgress}); // This might trigger AccountSection's logic
+            // The actual refresh logic (including AI call for new tasks) is in DailyTasksModal and AccountSection.
+            // This effect primarily ensures data is consistent on app load for timer display.
+            // If a task's timer expired offline, DailyTasksModal's useEffect will trigger refreshTaskAfterTimer.
         }
     }
   }, [user, currentView, currentDashboardSection, updateUserProfile]);
@@ -601,7 +624,8 @@ export const App: React.FC = () => {
       const viewTitles: Record<View, string> = {
         [View.Landing]: "Главная", [View.Login]: "Вход", [View.Register]: "Регистрация",
         [View.Dashboard]: "Личный Кабинет", [View.AIChatGuest]: "AI Чат Гостя", 
-        [View.AdminDashboard]: "Админ-Панель", [View.VersionHistory]: "История Версий"
+        [View.AdminDashboard]: "Админ-Панель", [View.VersionHistory]: "История Версий",
+        [View.TelegramFeatures]: "Функции Telegram", // New Title
       };
       dynamicViewName = viewTitles[currentView] || APP_NAME;
       if (currentView === View.Dashboard) {
@@ -616,7 +640,8 @@ export const App: React.FC = () => {
             [AdminDashboardSection.AdminNews]: "Упр. Новостями", [AdminDashboardSection.AdminProjects]: "Упр. Проектами",
             [AdminDashboardSection.AdminUsers]: "Упр. Пользователями", [AdminDashboardSection.AdminSiteStats]: "Статистика Сайта",
             [AdminDashboardSection.AdminSupportChats]: "Чаты Поддержки", [AdminDashboardSection.AdminAdvertisingSettings]: "Тарифы Рекламы", 
-            [AdminDashboardSection.AdminOnSiteAdManagement]: "Реклама на Сайте"
+            [AdminDashboardSection.AdminOnSiteAdManagement]: "Реклама на Сайте",
+            [AdminDashboardSection.AdminTelegramContests]: "Telegram Конкурсы", // Added
         };
         dynamicViewName = adminSectionTitles[currentAdminDashboardSection] || dynamicViewName;
       }
@@ -632,7 +657,7 @@ export const App: React.FC = () => {
     if (!supabase) { showToast("Ошибка: Supabase не инициализирован.", "error"); return; }
     const { error: signOutError } = await supabase.auth.signOut();
     if (signOutError) { showToast(`Ошибка выхода: ${signOutError.message}`, "error");} 
-    else { // Explicitly navigate to landing on logout
+    else { 
         handleNavigation(View.Landing);
     }
   };
@@ -717,6 +742,8 @@ export const App: React.FC = () => {
       case View.AIChatGuest: 
         if (!genAI) return <Box sx={{p:3, textAlign:'center'}}><MuiAlert severity="error">Gemini AI клиент не инициализирован.</MuiAlert></Box>;
         return <AIChatPage genAI={genAI} user={null} onAiRequestMade={handleAiRequestMade} onNavigate={handleNavigation} isInsideDashboard={false} globalAiRequestsMade={guestAiRequestsMade} globalAiRequestsLimit={GUEST_AI_REQUEST_LIMIT} />;
+      case View.TelegramFeatures: 
+        return <TelegramFeaturesPage onNavigate={handleNavigation} user={user} showToast={showToast} />;
       case View.Dashboard:
         if (!user || !genAI) { handleNavigation(View.Login); return null; }
         return (
@@ -724,7 +751,7 @@ export const App: React.FC = () => {
             {currentDashboardSection === DashboardSection.Account && <AccountSection user={user} onNavigateSection={handleDashboardSectionNavigation} onUserProfileUpdate={updateUserProfile} showToast={showToast} />}
             {currentDashboardSection === DashboardSection.AIChat && <AIChatPage genAI={genAI} user={user} onAiRequestMade={handleAiRequestMade} onNavigate={handleNavigation} isInsideDashboard={true} globalAiRequestsMade={user.user_metadata?.ai_requests_made || 0} globalAiRequestsLimit={user.user_metadata?.ai_requests_limit || USER_AI_REQUEST_LIMIT}/>}
             {currentDashboardSection === DashboardSection.ServicesAndAds && <ServicesAndAdvertisingSection onNavigateToHelpChat={() => handleDashboardSectionNavigation(DashboardSection.HelpChat)} />}
-            {currentDashboardSection === DashboardSection.AppSettings && <AppSettingsSection user={user} />}
+            {currentDashboardSection === DashboardSection.AppSettings && <AppSettingsSection user={user} showToast={showToast} />}
             {currentDashboardSection === DashboardSection.HelpChat && <HelpChatSection user={user} onUserProfileUpdate={updateUserProfile} showToast={showToast} />}
           </DashboardLayout>
         );
@@ -739,6 +766,7 @@ export const App: React.FC = () => {
             {currentAdminDashboardSection === AdminDashboardSection.AdminSupportChats && <AdminSupportChatsSection currentUser={user} showToast={showToast} />}
             {currentAdminDashboardSection === AdminDashboardSection.AdminAdvertisingSettings && <AdminAdvertisingSettingsSection currentUser={user} showToast={showToast} />}
             {currentAdminDashboardSection === AdminDashboardSection.AdminOnSiteAdManagement && <AdminOnSiteAdManagementSection currentUser={user} showToast={showToast} />}
+            {currentAdminDashboardSection === AdminDashboardSection.AdminTelegramContests && <AdminTelegramContestsSection currentUser={user} showToast={showToast} />} {/* Added */}
           </AdminDashboardLayout>
         );
       case View.VersionHistory:

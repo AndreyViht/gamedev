@@ -1,9 +1,11 @@
+
 import React, { useState } from 'react';
 import { View } from '../../enums/appEnums';
 import { supabase } from '../../api/clients';
 import { APP_NAME, USER_AI_REQUEST_LIMIT, REQUEST_RESET_INTERVAL_DAYS } from '../../config/constants';
 import { generateVihtId, generateClientKey } from '../../utils/helpers';
-import { Box, TextField, Button, Typography, Paper, Link as MuiLink, CircularProgress, Alert } from '@mui/material';
+import { Box, TextField, Button, Typography, Paper, Link as MuiLink, CircularProgress, Alert, Divider, IconButton } from '@mui/material';
+import GoogleIcon from '@mui/icons-material/Google';
 
 
 interface RegisterPageProps {
@@ -22,6 +24,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,25 +64,12 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
     }
 
     try {
-      const vihtId = generateVihtId();
-      const clientKey = generateClientKey();
-      const initialMetadata = {
-        display_name: displayName.trim(),
-        user_viht_id: vihtId,
-        client_key: clientKey,
-        ai_requests_made: 0,
-        ai_requests_limit: USER_AI_REQUEST_LIMIT,
-        is_premium: false,
-        premium_expires_at: null,
-        last_request_reset_at: new Date().toISOString(),
-        activity_points: 0, 
-        completed_secret_achievements: [], 
-      };
-
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: initialMetadata }
+        options: { 
+          data: { display_name: displayName.trim() } 
+        }
       });
 
       if (signUpError) throw signUpError;
@@ -92,7 +82,6 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
       } else if (data.session && data.user) {
          localStorage.setItem(DEVICE_REGISTERED_KEY, Date.now().toString());
          setMessage("Регистрация успешна! Вы вошли. Мы запомнили это устройство.");
-         // Navigation to dashboard will be handled by onAuthStateChange in App.tsx
       } else { 
          setMessage("Запрос на регистрацию отправлен. Проверьте почту.");
       }
@@ -104,6 +93,29 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
       else setError(err.message || "Ошибка регистрации.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    setError('');
+    setMessage('');
+    setGoogleLoading(true);
+    if (!supabase) {
+      setError("Клиент Supabase не инициализирован.");
+      setGoogleLoading(false);
+      return;
+    }
+    try {
+      const { error: googleError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+      });
+      if (googleError) {
+        setError(googleError.message || "Ошибка регистрации через Google.");
+      }
+    } catch (err: any) {
+      setError(err.message || "Непредвиденная ошибка при регистрации через Google.");
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -120,36 +132,58 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
             margin="normal" required fullWidth autoFocus
             id="register-displayname" label="Логин (Имя)" name="displayname"
             autoComplete="username" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
-            disabled={loading} aria-required="true"
+            disabled={loading || googleLoading} aria-required="true"
           />
           <TextField
             margin="normal" required fullWidth
             id="register-email" label="Email адрес" name="email"
             autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)}
-            disabled={loading} aria-required="true"
+            disabled={loading || googleLoading} aria-required="true"
           />
           <TextField
             margin="normal" required fullWidth name="password" label="Пароль (мин. 6 симв.)"
             type="password" id="register-password" autoComplete="new-password"
             value={password} onChange={(e) => setPassword(e.target.value)}
-            disabled={loading} inputProps={{ minLength: 6 }} aria-required="true"
+            disabled={loading || googleLoading} inputProps={{ minLength: 6 }} aria-required="true"
           />
           <TextField
             margin="normal" required fullWidth name="confirmPassword" label="Подтвердите пароль"
             type="password" id="register-confirm-password" autoComplete="new-password"
             value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-            disabled={loading} inputProps={{ minLength: 6 }} aria-required="true"
+            disabled={loading || googleLoading} inputProps={{ minLength: 6 }} aria-required="true"
           />
           <Button
             type="submit" fullWidth variant="contained"
-            sx={{ mt: 3, mb: 2, py: 1.5, borderRadius: 'var(--border-radius-large)', fontWeight: 600 }}
-            disabled={loading}
+            sx={{ mt: 3, mb: 1.5, py: 1.5, borderRadius: 'var(--border-radius-large)', fontWeight: 600 }}
+            disabled={loading || googleLoading}
           >
             {loading ? <CircularProgress size={24} color="inherit" /> : 'Зарегистрироваться'}
           </Button>
+
+          <Divider sx={{ my: 2.5 }}>
+            <Typography variant="caption" color="text.secondary">ИЛИ</Typography>
+          </Divider>
+
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+            <IconButton
+              aria-label="Зарегистрироваться с Google"
+              onClick={handleGoogleSignUp}
+              disabled={loading || googleLoading}
+              sx={{ 
+                border: '1px solid var(--border-color)', 
+                color: 'text.primary',
+                '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+                p: 1.5 
+              }}
+              title="Зарегистрироваться с Google"
+            >
+              {googleLoading ? <CircularProgress size={24} /> : <GoogleIcon />}
+            </IconButton>
+          </Box>
+
           <Typography variant="body2" align="center" className="auth-switch">
             Уже есть аккаунт?{' '}
-            <MuiLink component="button" variant="body2" onClick={() => onNavigate(View.Login)} disabled={loading} sx={{fontWeight: 500}}>
+            <MuiLink component="button" variant="body2" onClick={() => onNavigate(View.Login)} disabled={loading || googleLoading} sx={{fontWeight: 500}}>
               Войти
             </MuiLink>
           </Typography>

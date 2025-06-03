@@ -7,6 +7,7 @@ export enum View {
   AIChatGuest = 'AI_CHAT_GUEST',
   AdminDashboard = 'ADMIN_DASHBOARD',
   VersionHistory = 'VERSION_HISTORY', // Added
+  TelegramFeatures = 'TELEGRAM_FEATURES', // New view for Telegram features
 }
 
 export enum DashboardSection {
@@ -27,4 +28,5 @@ export enum AdminDashboardSection {
   AdminSupportChats = 'ADMIN_SUPPORT_CHATS',
   AdminAdvertisingSettings = 'ADMIN_ADVERTISING_SETTINGS',
   AdminOnSiteAdManagement = 'ADMIN_ON_SITE_AD_MANAGEMENT', // Added for managing on-site ad content
+  AdminTelegramContests = 'ADMIN_TELEGRAM_CONTESTS', // Added for Telegram contests
 }
