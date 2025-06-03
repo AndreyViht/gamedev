@@ -7,13 +7,14 @@ declare var Deno: any;
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 
+console.log('[telegram-bot-webhook] SCRIPT LOADED: Top-level log, before serve() is called.');
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS', // Telegram sends POST for webhooks
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Define a simple type for the expected Telegram update structure (can be expanded)
 interface TelegramUpdate {
   update_id: number;
   message?: {
@@ -26,73 +27,85 @@ interface TelegramUpdate {
       username?: string;
     };
     chat: {
-      id: number; // This is the user's chat ID for private messages
-      type: string; // 'private', 'group', 'supergroup', 'channel'
+      id: number;
+      type: string;
     };
     date: number;
     text?: string;
   };
-  // Add other update types if needed, e.g., callback_query
 }
 
-
 serve(async (req: Request) => {
-  // Log method and attempt to get raw body text as early as possible
-  console.log(`[telegram-bot-webhook] Function called. Method: ${req.method}`);
-  let rawBodyTextForDebug = "Could not read raw body.";
+  console.log(`[telegram-bot-webhook] HANDLER INVOKED: Method: ${req.method}`);
+
+  let rawBodyTextForDebug = "[telegram-bot-webhook] Raw body not read yet or failed to read.";
+  let clonedRequestForBody;
   try {
-    // Create a clone of the request to read its body, as body can only be read once.
-    const reqCloneForBody = req.clone();
-    rawBodyTextForDebug = await reqCloneForBody.text();
-    // Log only a snippet if it's too long to avoid flooding logs
-    const bodySnippet = rawBodyTextForDebug.length > 1000 ? rawBodyTextForDebug.substring(0, 1000) + "..." : rawBodyTextForDebug;
-    console.log(`[telegram-bot-webhook] Raw request body (text snippet): ${bodySnippet}`);
-  } catch (e) {
-    console.error(`[telegram-bot-webhook] Error reading raw request body: ${e.message}`);
-    rawBodyTextForDebug = `Error reading body: ${e.message}`;
+    clonedRequestForBody = req.clone();
+    console.log('[telegram-bot-webhook] Request cloned for body reading.');
+  } catch (cloneError) {
+    console.error(`[telegram-bot-webhook] CRITICAL: Failed to clone request: ${cloneError.message}`);
+  }
+
+  if (clonedRequestForBody) {
+    try {
+      rawBodyTextForDebug = await clonedRequestForBody.text();
+      const bodySnippet = rawBodyTextForDebug.length > 500 ? rawBodyTextForDebug.substring(0, 500) + "..." : rawBodyTextForDebug;
+      console.log(`[telegram-bot-webhook] Raw request body (text snippet from clone): ${bodySnippet}`);
+    } catch (e) {
+      console.error(`[telegram-bot-webhook] Error reading raw request body from clone: ${e.message}`);
+      rawBodyTextForDebug = `[telegram-bot-webhook] Error reading body from clone: ${e.message}`;
+    }
+  } else {
+    console.warn('[telegram-bot-webhook] Request was not cloned, cannot safely log raw body text here if JSON parsing is next.');
   }
 
 
   if (req.method === 'OPTIONS') {
-    console.log('[telegram-bot-webhook] Handling OPTIONS request.');
+    console.log('[telegram-bot-webhook] OPTIONS request: Responding with CORS headers.');
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
+    console.log('[telegram-bot-webhook] Entered main TRY block for non-OPTIONS request.');
     const telegramBotToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
-    const projectDomain = Deno.env.get('YOUR_PROJECT_DOMAIN'); // e.g., my-app.netlify.app
+    const projectDomain = Deno.env.get('YOUR_PROJECT_DOMAIN');
+
+    if (!telegramBotToken) console.error('[telegram-bot-webhook] CRITICAL ENV VAR MISSING: TELEGRAM_BOT_TOKEN');
+    if (!projectDomain) console.error('[telegram-bot-webhook] CRITICAL ENV VAR MISSING: YOUR_PROJECT_DOMAIN');
 
     if (!telegramBotToken || !projectDomain) {
-      console.error('[telegram-bot-webhook] Missing TELEGRAM_BOT_TOKEN or YOUR_PROJECT_DOMAIN in function environment.');
+      console.error('[telegram-bot-webhook] Aborting due to missing critical environment variables.');
       return new Response(JSON.stringify({ error: 'Server configuration error: Missing critical credentials for bot webhook.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500, // Should be 500 for server misconfig
       });
     }
+    console.log('[telegram-bot-webhook] Environment variables (TELEGRAM_BOT_TOKEN, YOUR_PROJECT_DOMAIN) existence checked.');
 
     let update: TelegramUpdate;
     try {
-        update = await req.json();
+        // req.json() consumes the body. Use the original req here.
+        update = await req.json(); // This is where the original request body is consumed
+        console.log(`[telegram-bot-webhook] Successfully parsed JSON from original request. Update ID: ${update.update_id}, Message Text (if any): ${update.message?.text?.substring(0,50)}...`);
     } catch (jsonParseError) {
-        console.error(`[telegram-bot-webhook] Failed to parse JSON from request body. Raw body was (snippet): ${rawBodyTextForDebug.substring(0,1000)}`, jsonParseError);
+        console.error(`[telegram-bot-webhook] JSON PARSE ERROR on original request: ${jsonParseError.message}. Raw body logged earlier (from clone attempt): ${rawBodyTextForDebug}`);
         return new Response(JSON.stringify({ error: 'Invalid JSON in request body.' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400
         });
     }
-    console.log(`[telegram-bot-webhook] Parsed update ID: ${update.update_id}`);
-
 
     if (update.message && update.message.text && update.message.text.startsWith('/start ')) {
       const commandText = update.message.text;
-      const chatId = update.message.chat.id; // User's chat ID
-      console.log(`[telegram-bot-webhook] Received /start command: "${commandText}" from chat ID: ${chatId}`);
+      const chatId = update.message.chat.id;
+      console.log(`[telegram-bot-webhook] Processing /start command: "${commandText}" from chat ID: ${chatId}`);
 
       const parts = commandText.split(' ');
       if (parts.length === 2 && parts[1].startsWith('contest_')) {
         const contestIdWithPrefix = parts[1];
         const contestId = contestIdWithPrefix.substring('contest_'.length);
-        console.log(`[telegram-bot-webhook] Extracted contestId: ${contestId}`);
-
+        
         if (contestId) {
+          console.log(`[telegram-bot-webhook] Extracted contestId: ${contestId}`);
           const webAppUrl = `https://${projectDomain}/telegram-webapp/contest-participation?contestId=${contestId}`;
           console.log(`[telegram-bot-webhook] Generated Web App URL: ${webAppUrl}`);
           
@@ -109,46 +122,42 @@ serve(async (req: Request) => {
             }
           };
 
-          const sendMessageUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
-          console.log(`[telegram-bot-webhook] Sending message to Telegram API: ${sendMessageUrl} with payload: ${JSON.stringify(replyMessage)}`);
-          const tgResponse = await fetch(sendMessageUrl, {
+          console.log(`[telegram-bot-webhook] Sending message to Telegram API. Chat ID: ${chatId}, URL: ${webAppUrl.substring(0,50)}...`);
+          const tgResponse = await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(replyMessage),
           });
 
           const tgResponseData = await tgResponse.json();
-          console.log(`[telegram-bot-webhook] Telegram API response: ${JSON.stringify(tgResponseData)}`);
-          if (!tgResponse.ok || !tgResponseData.ok) {
-            console.error(`[telegram-bot-webhook] Telegram API error sending Web App button to chat ${chatId}:`, tgResponseData);
-          }
+          console.log(`[telegram-bot-webhook] Telegram API response for sendMessage: Status ${tgResponse.status}, OK: ${tgResponseData.ok}, Description: ${tgResponseData.description}`);
           
-          // Telegram expects a 200 OK response to the webhook, even if sending the message fails.
-          // The actual content of the response to Telegram webhook doesn't usually matter unless you're using specific reply methods.
           return new Response(JSON.stringify({ success: true, message_sent_to_user: tgResponseData.ok }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
           });
         } else {
-           console.log('[telegram-bot-webhook] Contest ID was empty after parsing.');
+           console.log('[telegram-bot-webhook] Contest ID was empty after parsing from /start command.');
         }
       } else {
-         console.log('[telegram-bot-webhook] /start command payload did not match "contest_XXX" format.');
+         console.log('[telegram-bot-webhook] /start command payload did not match "contest_XXX" format or was not a /start command.');
       }
     } else {
-       console.log('[telegram-bot-webhook] Update did not contain a relevant /start message or message text.');
+       console.log('[telegram-bot-webhook] Update did not contain a relevant /start message or message.text was missing.');
     }
-
-    // Default response if not the specific /start contest_ command
-    // Always return 200 OK to Telegram to acknowledge receipt of the webhook.
+    
+    console.log('[telegram-bot-webhook] Reached end of main TRY block for non-matching command. Sending 200 OK.');
     return new Response(JSON.stringify({ message: 'Update received, but no specific action taken for this command.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
     });
 
   } catch (error) {
-    console.error('[telegram-bot-webhook] Main try-catch error:', error);
-    // Acknowledge receipt to Telegram even in case of server error to prevent retries.
-    return new Response(JSON.stringify({ error: 'Internal server error processing update. Check function logs.' }), {
+    console.error(`[telegram-bot-webhook] CATCH block error (outer try): ${error.message}`, error);
+    // It's crucial to return 200 OK to Telegram to prevent webhook retries, even on server error.
+    // Telegram considers non-200 responses as failures and will retry.
+    return new Response(JSON.stringify({ error: 'Internal server error processing update. Check function logs for details.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200, 
     });
   }
 });
+
+console.log('[telegram-bot-webhook] SCRIPT PARSED: End of script, serve() has been called.');
