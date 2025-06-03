@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { User, Session, AuthChangeEvent, Subscription } from '@supabase/supabase-js';
+import type { User as SupabaseAuthUser, Session as SupabaseSession, AuthChangeEvent as SupabaseAuthChangeEvent, Subscription as SupabaseSubscription } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
 
 import { ThemeProvider, createTheme, CssBaseline, Box, Fab, CircularProgress, Typography, Alert as MuiAlert } from '@mui/material';
@@ -131,7 +131,7 @@ export const App: React.FC = () => {
   const [placeholderNewsItems] = useState<NewsItem[]>(getRandomNews()); 
   const [placeholderProjectItems] = useState<ProjectItem[]>(getPlaceholderProjects());
   
-  const [sessionState, setSessionState] = useState<Session | null>(null);
+  const [sessionState, setSessionState] = useState<SupabaseSession | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [guestAiRequestsMade, setGuestAiRequestsMade] = useState(() => getStoredJson<number>(LS_KEY_GUEST_AI_REQUESTS, 0, (v): v is number => typeof v === 'number'));
@@ -271,27 +271,34 @@ export const App: React.FC = () => {
     setDisplayedProjectItems(projectsForLanding);
   }, [dbProjects]);
 
-  const processUserSessionLogic = useCallback(async (userToProcessParam: User | UserProfile | null, isNewSignInEvent: boolean = false): Promise<UserProfile | null> => {
+  const processUserSessionLogic = useCallback(async (userToProcessParam: SupabaseAuthUser | UserProfile | null, isNewSignInEvent: boolean = false): Promise<UserProfile | null> => {
     if (!userToProcessParam || !supabase) { return userToProcessParam as UserProfile | null; }
     
-    const baseUser = userToProcessParam as User;
-    const existingProfileData = (userToProcessParam as UserProfile).user_metadata ? (userToProcessParam as UserProfile).user_metadata : {};
+    const baseUser = userToProcessParam as SupabaseAuthUser; // Treat as SupabaseAuthUser initially
+    
+    // Try to get existing UserProfile data if userToProcessParam was already a UserProfile
+    const existingProfileData = (userToProcessParam as UserProfile).user_metadata 
+                                  ? (userToProcessParam as UserProfile).user_metadata 
+                                  : (baseUser.user_metadata || {});
     
     const userToProcess: UserProfile = {
-        ...baseUser,
-        // Prioritize existing app-specific metadata over potentially conflicting general user_metadata from Supabase/OAuth
-        user_metadata: { ...baseUser.user_metadata, ...existingProfileData }, 
-    };
+        ...(baseUser as Omit<SupabaseAuthUser, 'user_metadata'>), // Cast baseUser to ensure correct properties are spread
+        user_metadata: { // Start with Supabase's user_metadata, then layer our specific app data
+            ...baseUser.user_metadata, 
+            ...existingProfileData,
+        },
+    } as UserProfile; // Assert to UserProfile after constructing
     
-    const metadata = userToProcess.user_metadata || {};
+    const metadata = userToProcess.user_metadata; // metadata is now CustomUserMetadata
     
     let needsServerUpdate = false;
     const now = new Date();
     const todayDateString = now.toISOString().split('T')[0];
 
     // Handle display_name: if our app's display_name is not set, try to use full_name from OAuth (e.g., Google)
-    if (!metadata.display_name && metadata.full_name) {
-        metadata.display_name = metadata.full_name;
+    // Supabase user_metadata might contain 'full_name' from OAuth.
+    if (!metadata.display_name && (baseUser.user_metadata as any)?.full_name) {
+        metadata.display_name = (baseUser.user_metadata as any)?.full_name;
         needsServerUpdate = true;
     } else if (!metadata.display_name) { // Fallback if full_name is also missing
         metadata.display_name = userToProcess.email?.split('@')[0] || "Пользователь";
@@ -374,7 +381,7 @@ export const App: React.FC = () => {
 
     const achievementsToProcessImmediately = [
         { id: 'pioneer', condition: isNewSignInEvent },
-        { id: 'platform_demiurge', condition: isUserAdmin({ ...userToProcess, user_metadata: metadata } as UserProfile) },
+        { id: 'platform_demiurge', condition: isUserAdmin({ ...userToProcess } as UserProfile) }, // Pass the constructed UserProfile
         { id: 'premium_supporter', condition: metadata.is_premium === true }
     ];
 
@@ -406,20 +413,23 @@ export const App: React.FC = () => {
     
     if (needsServerUpdate) {
         try {
-            // For OAuth sign-ups, some metadata (like full_name) might come from the provider.
-            // We merge it here but ensure our app-specific fields take precedence or are initialized.
-            const updatePayload = { ...userToProcess.user_metadata, ...metadata };
+            const updatePayload = { ...metadata }; // Only update the metadata part
 
             const { data: updatedUserData, error: updateError } = await supabase.auth.updateUser({ data: updatePayload });
             if (updateError) {
                 console.error("Error updating user metadata during session processing:", updateError);
-                return { ...userToProcess, user_metadata: updatePayload } as UserProfile; 
+                // Return the user object with the locally modified metadata, as server update failed
+                return { ...userToProcess, user_metadata: metadata } as UserProfile; 
             }
-            // Supabase might return the user object with its own user_metadata structure.
-            // We need to ensure our app's user_metadata structure is preserved.
-            const finalUser = updatedUserData?.user as UserProfile || { ...userToProcess, user_metadata: updatePayload } as UserProfile;
-            finalUser.user_metadata = { ...finalUser.user_metadata, ...updatePayload };
-            return finalUser;
+            // Supabase returns the updated user. Merge it with our UserProfile structure.
+            const supabaseReturnedUser = updatedUserData?.user;
+            if (supabaseReturnedUser) {
+                return {
+                     ...(supabaseReturnedUser as Omit<SupabaseAuthUser, 'user_metadata'>),
+                     user_metadata: { ...supabaseReturnedUser.user_metadata, ...updatePayload } as UserProfile['user_metadata']
+                } as UserProfile;
+            }
+            return { ...userToProcess, user_metadata: metadata } as UserProfile;
         } catch (e) {
             console.error("Exception updating user metadata during session processing:", e);
             return { ...userToProcess, user_metadata: metadata } as UserProfile; 
@@ -491,7 +501,7 @@ export const App: React.FC = () => {
     fetchNewsFromSupabase(); 
     fetchProjectsFromSupabase();
 
-    let authListener: Subscription | undefined;
+    let authListener: SupabaseSubscription | undefined;
 
     const getActiveSessionAndSubscribe = async () => {
       setLoadingSession(true);
@@ -499,13 +509,10 @@ export const App: React.FC = () => {
         const { data: { session: activeSession }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw sessionError; 
         
-        let currentUserAuth = activeSession?.user as User | null;
+        let currentUserAuth = activeSession?.user as SupabaseAuthUser | null;
         let processedCurrentUser: UserProfile | null = null;
         if (currentUserAuth) {
-            // For initial load, check if user_metadata already has our custom fields
-            // If not, processUserSessionLogic will initialize them.
-            const potentialExistingProfile = { ...currentUserAuth, user_metadata: currentUserAuth.user_metadata || {} } as UserProfile;
-            processedCurrentUser = await processUserSessionLogic(potentialExistingProfile, false); 
+            processedCurrentUser = await processUserSessionLogic(currentUserAuth, false); 
         }
         setUser(processedCurrentUser); 
         setSessionState(activeSession);
@@ -518,19 +525,15 @@ export const App: React.FC = () => {
           setInitialDataLoaded(true); 
       }
 
-      const { data: authListenerData } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, newSession: Session | null) => {
+      const { data: authListenerData } = supabase.auth.onAuthStateChange(async (event: SupabaseAuthChangeEvent, newSession: SupabaseSession | null) => {
         setLoadingSession(true); 
         try {
-            let authChangeUserAuth = newSession?.user as User | null;
+            let authChangeUserAuth = newSession?.user as SupabaseAuthUser | null;
             let processedAuthChangeUser: UserProfile | null = null;
-            // isNewSignInEvent is true if it's a SIGNED_IN event AND the user ID is different from the previous session's user ID
-            // or if there was no previous session. This helps differentiate a new login from a token refresh.
             const isNewSignInEvent = event === 'SIGNED_IN' && (!sessionState || !sessionState.user || sessionState.user.id !== newSession?.user?.id);
             
             if (authChangeUserAuth) {
-                 // Pass existing app-specific metadata if available, otherwise it's a new user or OAuth user
-                const potentialExistingProfileOnChange = { ...authChangeUserAuth, user_metadata: authChangeUserAuth.user_metadata || {} } as UserProfile;
-                processedAuthChangeUser = await processUserSessionLogic(potentialExistingProfileOnChange, isNewSignInEvent);
+                processedAuthChangeUser = await processUserSessionLogic(authChangeUserAuth, isNewSignInEvent);
             }
             
             setUser(processedAuthChangeUser); 
@@ -743,7 +746,7 @@ export const App: React.FC = () => {
             {currentDashboardSection === DashboardSection.Account && <AccountSection user={user} onNavigateSection={handleDashboardSectionNavigation} onUserProfileUpdate={updateUserProfile} showToast={showToast} />}
             {currentDashboardSection === DashboardSection.AIChat && <AIChatPage genAI={genAI} user={user} onAiRequestMade={handleAiRequestMade} onNavigate={handleNavigation} isInsideDashboard={true} globalAiRequestsMade={user.user_metadata?.ai_requests_made || 0} globalAiRequestsLimit={user.user_metadata?.ai_requests_limit || USER_AI_REQUEST_LIMIT}/>}
             {currentDashboardSection === DashboardSection.ServicesAndAds && <ServicesAndAdvertisingSection onNavigateToHelpChat={() => handleDashboardSectionNavigation(DashboardSection.HelpChat)} />}
-            {currentDashboardSection === DashboardSection.AppSettings && <AppSettingsSection user={user} />}
+            {currentDashboardSection === DashboardSection.AppSettings && <AppSettingsSection user={user} showToast={showToast} />}
             {currentDashboardSection === DashboardSection.HelpChat && <HelpChatSection user={user} onUserProfileUpdate={updateUserProfile} showToast={showToast} />}
           </DashboardLayout>
         );

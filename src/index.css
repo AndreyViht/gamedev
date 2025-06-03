@@ -1018,23 +1018,41 @@ body,
   padding: 2px 6px; border-radius: var(--border-radius-small); font-size: 0.9em; word-break: break-all;
 }
 .settings-block {
-  margin-bottom: 30px; padding: 20px; background-color: var(--secondary-background-color); 
-  border-radius: var(--border-radius); box-shadow: var(--box-shadow-light);
+  margin-bottom: 16px; /* Reduced from 30px */
+  padding: 16px; /* Reduced from 20px */
+  background-color: var(--secondary-background-color); 
+  border-radius: var(--border-radius); 
+  box-shadow: var(--box-shadow-light);
 }
 .settings-block h3 {
-  margin-top: 0; margin-bottom: 15px; font-size: 1.25em; color: var(--text-color);
-  border-bottom: 1px solid var(--divider-color); padding-bottom: 8px;
+  margin-top: 0; 
+  margin-bottom: 12px; /* Reduced from 15px */
+  font-size: 1.1rem; /* Reduced from 1.25em */
+  color: var(--text-color);
+  border-bottom: 1px solid var(--divider-color); 
+  padding-bottom: 8px;
 }
-.settings-form .form-group { margin-bottom: 15px; }
-.settings-form .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
+.settings-form .form-group { margin-bottom: 12px; /* Reduced from 15px */ }
+.settings-form .form-group label { display: block; margin-bottom: 4px; /* Reduced from 5px */ font-weight: 500; font-size: 0.9rem; }
 .settings-form .form-group input[type="text"],
+.settings-form .form-group input[type="email"], /* Added for consistency */
+.settings-form .form-group input[type="password"], /* Added for consistency */
 .settings-form .form-group input[type="url"],
 .settings-form .form-group input[type="number"], 
 .settings-form .form-group textarea {
-  width: 100%; padding: 10px; border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-small); font-size: 1rem;
-  background-color: var(--secondary-background-color); color: var(--text-color);
+  width: 100%; 
+  padding: 8px 10px; /* Reduced from 10px */
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-small); 
+  font-size: 0.95rem; /* Reduced from 1rem */
+  background-color: var(--secondary-background-color); 
+  color: var(--text-color);
 }
+/* Specific for AppSettingsSection TextFields with MUI dense margin */
+.app-settings-section .MuiTextField-root {
+    margin-bottom: 8px; /* Add some space below dense TextFields */
+}
+
 .settings-form .form-group input:focus,
 .settings-form .form-group textarea:focus {
   border-color: var(--primary-color);

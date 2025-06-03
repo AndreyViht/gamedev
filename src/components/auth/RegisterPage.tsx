@@ -4,8 +4,8 @@ import { View } from '../../enums/appEnums';
 import { supabase } from '../../api/clients';
 import { APP_NAME, USER_AI_REQUEST_LIMIT, REQUEST_RESET_INTERVAL_DAYS } from '../../config/constants';
 import { generateVihtId, generateClientKey } from '../../utils/helpers';
-import { Box, TextField, Button, Typography, Paper, Link as MuiLink, CircularProgress, Alert, Divider } from '@mui/material';
-import GoogleIcon from '@mui/icons-material/Google'; // Import Google icon
+import { Box, TextField, Button, Typography, Paper, Link as MuiLink, CircularProgress, Alert, Divider, IconButton } from '@mui/material';
+import GoogleIcon from '@mui/icons-material/Google';
 
 
 interface RegisterPageProps {
@@ -64,31 +64,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
     }
 
     try {
-      // These initial metadata values will be set by processUserSessionLogic
-      // for both email/password and OAuth sign-ups if they are new users.
-      // For email/password, Supabase's signUp options.data is one way, but
-      // centralizing in processUserSessionLogic ensures consistency.
-      // const vihtId = generateVihtId();
-      // const clientKey = generateClientKey();
-      // const initialMetadata = {
-      //   display_name: displayName.trim(),
-      //   user_viht_id: vihtId,
-      //   client_key: clientKey,
-      //   ai_requests_made: 0,
-      //   ai_requests_limit: USER_AI_REQUEST_LIMIT,
-      //   is_premium: false,
-      //   premium_expires_at: null,
-      //   last_request_reset_at: new Date().toISOString(),
-      //   activity_points: 0, 
-      //   completed_secret_achievements: [], 
-      // };
-
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: { 
-          // We can still pass display_name here for email sign-up
-          // Other custom fields will be handled by processUserSessionLogic
           data: { display_name: displayName.trim() } 
         }
       });
@@ -103,7 +82,6 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
       } else if (data.session && data.user) {
          localStorage.setItem(DEVICE_REGISTERED_KEY, Date.now().toString());
          setMessage("Регистрация успешна! Вы вошли. Мы запомнили это устройство.");
-         // Navigation to dashboard will be handled by onAuthStateChange in App.tsx
       } else { 
          setMessage("Запрос на регистрацию отправлен. Проверьте почту.");
       }
@@ -130,15 +108,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
     try {
       const { error: googleError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        // options: {
-        //   // redirectTo: window.location.origin, // Optional: ensure redirect back to your app
-        // }
       });
       if (googleError) {
         setError(googleError.message || "Ошибка регистрации через Google.");
       }
-      // Supabase handles redirection. If successful, onAuthStateChange in App.tsx will manage session and user creation.
-      // processUserSessionLogic in App.tsx will handle setting up initial metadata.
     } catch (err: any) {
       setError(err.message || "Непредвиденная ошибка при регистрации через Google.");
     } finally {
@@ -187,18 +160,26 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
             {loading ? <CircularProgress size={24} color="inherit" /> : 'Зарегистрироваться'}
           </Button>
 
-          <Divider sx={{ my: 2 }}>ИЛИ</Divider>
+          <Divider sx={{ my: 2.5 }}>
+            <Typography variant="caption" color="text.secondary">ИЛИ</Typography>
+          </Divider>
 
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<GoogleIcon />}
-            onClick={handleGoogleSignUp}
-            disabled={loading || googleLoading}
-            sx={{ mb: 2, py: 1.5, borderRadius: 'var(--border-radius-large)', fontWeight: 500, borderColor: 'var(--border-color)', color: 'text.primary' }}
-          >
-            {googleLoading ? <CircularProgress size={24} /> : 'Зарегистрироваться с Google'}
-          </Button>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+            <IconButton
+              aria-label="Зарегистрироваться с Google"
+              onClick={handleGoogleSignUp}
+              disabled={loading || googleLoading}
+              sx={{ 
+                border: '1px solid var(--border-color)', 
+                color: 'text.primary',
+                '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+                p: 1.5 
+              }}
+              title="Зарегистрироваться с Google"
+            >
+              {googleLoading ? <CircularProgress size={24} /> : <GoogleIcon />}
+            </IconButton>
+          </Box>
 
           <Typography variant="body2" align="center" className="auth-switch">
             Уже есть аккаунт?{' '}

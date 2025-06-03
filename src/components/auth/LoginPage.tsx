@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 import { View } from '../../enums/appEnums';
 import { supabase } from '../../api/clients';
 import { APP_NAME } from '../../config/constants';
-import { Box, TextField, Button, Typography, Paper, Link as MuiLink, CircularProgress, Alert, Divider } from '@mui/material';
-import GoogleIcon from '@mui/icons-material/Google'; // Import Google icon
+import { Box, TextField, Button, Typography, Paper, Link as MuiLink, CircularProgress, Alert, Divider, IconButton } from '@mui/material';
+import GoogleIcon from '@mui/icons-material/Google';
 
 interface LoginPageProps {
   onNavigate: (view: View) => void;
@@ -65,8 +65,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     } catch (err: any) {
       setError(err.message || "Непредвиденная ошибка при входе через Google.");
     } finally {
-      // Google loading might not stop here if redirection happens,
-      // but good to have for direct errors.
       setGoogleLoading(false);
     }
   };
@@ -117,18 +115,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             {loading ? <CircularProgress size={24} color="inherit" /> : 'Войти'}
           </Button>
           
-          <Divider sx={{ my: 2 }}>ИЛИ</Divider>
+          <Divider sx={{ my: 2.5 }}>
+            <Typography variant="caption" color="text.secondary">ИЛИ</Typography>
+          </Divider>
 
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<GoogleIcon />}
-            onClick={handleGoogleSignIn}
-            disabled={loading || googleLoading}
-            sx={{ mb: 2, py: 1.5, borderRadius: 'var(--border-radius-large)', fontWeight: 500, borderColor: 'var(--border-color)', color: 'text.primary' }}
-          >
-            {googleLoading ? <CircularProgress size={24} /> : 'Войти с Google'}
-          </Button>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+            <IconButton
+              aria-label="Войти с Google"
+              onClick={handleGoogleSignIn}
+              disabled={loading || googleLoading}
+              sx={{ 
+                border: '1px solid var(--border-color)', 
+                color: 'text.primary',
+                '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+                p: 1.5 // Adjust padding for IconButton
+              }}
+              title="Войти с Google"
+            >
+              {googleLoading ? <CircularProgress size={24} /> : <GoogleIcon />}
+            </IconButton>
+          </Box>
 
           <Typography variant="body2" align="center" className="auth-switch">
             Нет аккаунта?{' '}
