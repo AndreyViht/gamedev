@@ -2,13 +2,14 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
+import TelegramContestParticipationWebApp from './components/telegram/TelegramContestParticipationWebApp'; // Импортируем новый компонент
 import { supabase, genAI } from './api/clients';
 import './index.css';
 
 const rootElement = document.getElementById('root');
 
 if (!rootElement) {
-  document.body.innerHTML = `<div style="color:red; text-align:center; padding:20px;">Критическая Ошибка: HTML элемент #root не найден.</div>`;
+  document.body.innerHTML = \`<div style="color:red; text-align:center; padding:20px;">Критическая Ошибка: HTML элемент #root не найден.</div>\`;
 } else {
   const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL;
   const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY;
@@ -31,50 +32,64 @@ if (!rootElement) {
   }
   
   if (criticalError) {
-    rootElement.innerHTML = `
+    rootElement.innerHTML = \`
       <div class="critical-error-container">
         <h1>Критическая Ошибка Конфигурации</h1>
         <p>Обнаружены отсутствующие или неверные API ключи или переменные окружения:</p>
-        <ul>${errorMessages.join('')}</ul>
+        <ul>\${errorMessages.join('')}</ul>
         <p>Проверьте ваши переменные окружения (обычно в файле .env) и конфигурацию сборщика (Vite) и перезапустите приложение.</p>
-      </div>`;
+      </div>\`;
   } else if (!supabase) {
     criticalError = true;
-    rootElement.innerHTML = `
+    rootElement.innerHTML = \`
       <div class="critical-error-container">
         <h1>Критическая Ошибка Инициализации Клиента</h1>
         <p>Не удалось инициализировать клиент Supabase. Проверьте консоль для деталей и убедитесь, что URL и Anon ключ Supabase корректны и доступны.</p>
-      </div>`;
+      </div>\`;
   } else if (!genAI) {
     criticalError = true;
-     rootElement.innerHTML = `
+     rootElement.innerHTML = \`
       <div class="critical-error-container">
         <h1>Критическая Ошибка Инициализации Клиента</h1>
         <p>Не удалось инициализировать клиент Gemini AI. Проверьте консоль для деталей и убедитесь, что API ключ Gemini (process.env.API_KEY) корректен и доступен.</p>
-      </div>`;
+      </div>\`;
   }
-
 
   if (!criticalError) {
     try {
       const root = ReactDOM.createRoot(rootElement);
-      root.render(
-        <React.StrictMode>
-          <App />
-        </React.StrictMode>
-      );
-      console.log(
-        "%cGameDev Factory%c - Приложение успешно загружено!",
-        "font-weight: bold; font-size: 1.2em; color: #007AFF;",
-        "font-size: 1em; color: #34C759;"
-      );
+      // Проверяем путь для Telegram Web App
+      if (window.location.pathname === '/telegram-webapp/contest-participation') {
+        root.render(
+          <React.StrictMode>
+            <TelegramContestParticipationWebApp />
+          </React.StrictMode>
+        );
+        console.log(
+          "%cTelegram Contest Participation WebApp%c - Загружено!",
+          "font-weight: bold; font-size: 1.1em; color: #0088cc;",
+          "font-size: 1em; color: #34C759;"
+        );
+      } else {
+        // Рендерим основное приложение
+        root.render(
+          <React.StrictMode>
+            <App />
+          </React.StrictMode>
+        );
+        console.log(
+          "%cGameDev Factory%c - Приложение успешно загружено!",
+          "font-weight: bold; font-size: 1.2em; color: #007AFF;",
+          "font-size: 1em; color: #34C759;"
+        );
+      }
     } catch (e: any) {
-      rootElement.innerHTML = `
+      rootElement.innerHTML = \`
         <div class="critical-error-container">
           <h1>Ошибка Инициализации Приложения</h1>
-          <p>${e.message}</p>
-          <pre>${e.stack}</pre>
-        </div>`;
+          <p>\${e.message}</p>
+          <pre>\${e.stack}</pre>
+        </div>\`;
     }
   }
 }
