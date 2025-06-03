@@ -57,7 +57,7 @@ export const CreateContestForm: React.FC<CreateContestFormProps> = ({ channelId,
             // by an updated Edge Function, but the current function will likely ignore them and post to its configured channel.
             const payload = {
                 ...contestDetails,
-                // channel_id_to_post: channelId, // This would be for a modified Edge Function
+                targetChannelId: channelId, // Pass the selected channel ID to the Edge Function
                 // requested_by_telegram_user_id: telegramUserId, // For logging/context in Edge Function
             };
 
@@ -77,7 +77,6 @@ export const CreateContestForm: React.FC<CreateContestFormProps> = ({ channelId,
                  setFormError(`Ошибка от функции: ${data.error}`);
             } else {
                 showToast(`Конкурс для канала ${channelId} успешно отправлен на публикацию!`, 'success');
-                // Note: Actual publication channel depends on Edge Function's TELEGRAM_CHANNEL_ID env var.
                 onClose(); // Close form on success
             }
         } catch (err: any) {
@@ -198,9 +197,6 @@ export const CreateContestForm: React.FC<CreateContestFormProps> = ({ channelId,
                         </Button>
                     </Grid>
                 </Grid>
-                 <Alert severity="warning" sx={{mt:3}}>
-                    <strong>Примечание:</strong> В текущей версии, конкурс будет опубликован в Telegram-канал, который настроен глобально в переменных окружения серверной функции (`TELEGRAM_CHANNEL_ID`). Выбор канала в этом интерфейсе пока не влияет на целевой канал публикации.
-                </Alert>
             </Paper>
         </Box>
     );
