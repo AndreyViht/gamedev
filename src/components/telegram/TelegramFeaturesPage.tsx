@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile } from '../../types';
 import { View } from '../../enums/appEnums';
-import { Box, Typography, Button, Paper, Link as MuiLink, Stack, CircularProgress, Alert } from '@mui/material';
+import { Box, Typography, Button, Paper, Link as MuiLink, Stack, CircularProgress, Alert, TextField, List, ListItem, ListItemText, IconButton } from '@mui/material';
 import AddToQueueIcon from '@mui/icons-material/AddToQueue';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
-import TelegramIcon from '@mui/icons-material/Telegram';
-import { TelegramAuthData } from '../../types/telegram';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
 
-// Extend the Window interface to include our callback
+import { TelegramAuthData } from '../../types/telegram';
+import { CreateContestForm } from './CreateContestForm'; // New import
+
 declare global {
   interface Window {
     onTelegramAuthCallback?: (user: TelegramAuthData) => void;
@@ -18,30 +20,48 @@ declare global {
 interface TelegramFeaturesPageProps {
   user: UserProfile | null;
   onNavigate: (view: View) => void;
+  showToast: (message: string, type: 'success' | 'error' | 'info') => void; // Added for toasts
 }
 
-const TELEGRAM_BOT_USERNAME = "gamegev_bot"; // Matches the bot link
+const TELEGRAM_BOT_USERNAME = "gamegev_bot";
+const MANAGED_CHANNELS_LS_KEY = "telegram_managed_channels_gdf";
 
-export const TelegramFeaturesPage: React.FC<TelegramFeaturesPageProps> = ({ user, onNavigate }) => {
+export const TelegramFeaturesPage: React.FC<TelegramFeaturesPageProps> = ({ user, onNavigate, showToast }) => {
   const botLink = `https://t.me/${TELEGRAM_BOT_USERNAME}`;
   const [telegramUser, setTelegramUser] = useState<TelegramAuthData | null>(null);
-  const [isLoading, setIsLoading] = useState(false); // For any async operations if needed
+  const [isLoading, setIsLoading] = useState(false);
   const telegramLoginContainerRef = useRef<HTMLDivElement>(null);
 
+  const [managedChannels, setManagedChannels] = useState<string[]>([]);
+  const [channelInput, setChannelInput] = useState('');
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [creatingContestForChannelId, setCreatingContestForChannelId] = useState<string | null>(null);
+
   useEffect(() => {
-    // Define the callback function that Telegram widget will call
+    const storedChannels = localStorage.getItem(MANAGED_CHANNELS_LS_KEY);
+    if (storedChannels) {
+      try {
+        const parsedChannels = JSON.parse(storedChannels);
+        if (Array.isArray(parsedChannels)) {
+          setManagedChannels(parsedChannels);
+        }
+      } catch (e) {
+        console.error("Error parsing managed channels from localStorage:", e);
+        localStorage.removeItem(MANAGED_CHANNELS_LS_KEY);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(MANAGED_CHANNELS_LS_KEY, JSON.stringify(managedChannels));
+  }, [managedChannels]);
+
+
+  useEffect(() => {
     window.onTelegramAuthCallback = (authData: TelegramAuthData) => {
-      // IMPORTANT SECURITY WARNING:
-      // The 'hash' parameter received from Telegram MUST be verified on your backend server
-      // using your bot token to ensure the data is authentic and from Telegram.
-      // Client-side validation is insecure as it would expose your bot token.
-      // For this frontend-only example, we are skipping hash validation,
-      // but this is NOT SUITABLE FOR PRODUCTION.
-      console.log("Telegram Auth Data Received (Hash NOT validated):", authData);
       setTelegramUser(authData);
     };
 
-    // Dynamically load the Telegram login script if not already logged in
     if (!telegramUser && telegramLoginContainerRef.current) {
       const script = document.createElement('script');
       script.src = "https://telegram.org/js/telegram-widget.js?22";
@@ -52,33 +72,76 @@ export const TelegramFeaturesPage: React.FC<TelegramFeaturesPageProps> = ({ user
       script.setAttribute('data-onauth', 'onTelegramAuthCallback(user)');
       script.setAttribute('data-request-access', 'write');
       
-      // Clear previous button if any and append new
       telegramLoginContainerRef.current.innerHTML = ''; 
       telegramLoginContainerRef.current.appendChild(script);
     }
 
-    // Cleanup the global callback function when the component unmounts
     return () => {
       delete window.onTelegramAuthCallback;
     };
-  }, [telegramUser]); // Rerun if telegramUser changes (e.g., logs out)
+  }, [telegramUser]);
 
-  const handleCreateContest = () => {
-    alert("Функция 'Создать конкурс' находится в разработке.");
+  const handleAddChannel = () => {
+    const newChannelId = channelInput.trim();
+    if (!newChannelId) {
+      showToast("ID канала не может быть пустым.", "error");
+      return;
+    }
+    if (managedChannels.includes(newChannelId)) {
+      showToast("Этот канал уже добавлен.", "info");
+      return;
+    }
+    setManagedChannels(prev => [...prev, newChannelId]);
+    setChannelInput('');
+    showToast(`Канал ${newChannelId} добавлен.`, "success");
   };
 
+  const handleRemoveChannel = (channelIdToRemove: string) => {
+    setManagedChannels(prev => prev.filter(id => id !== channelIdToRemove));
+    if (selectedChannelId === channelIdToRemove) {
+      setSelectedChannelId(null);
+      setCreatingContestForChannelId(null);
+    }
+    showToast(`Канал ${channelIdToRemove} удален.`, "info");
+  };
+
+  const handleSelectChannel = (channelId: string) => {
+    setSelectedChannelId(channelId);
+    setCreatingContestForChannelId(null); // Close contest form if a new channel is selected
+  };
+
+  const handleOpenContestForm = () => {
+    if (selectedChannelId) {
+      setCreatingContestForChannelId(selectedChannelId);
+    }
+  };
+  
   const handleScheduledPosts = () => {
-    alert("Функция 'Создать отложенные публикации' находится в разработке.");
+    alert(`Функция 'Создать отложенные публикации' для канала ${selectedChannelId} находится в разработке.`);
   };
 
   const handleChannelStats = () => {
-    alert("Функция 'Статистика канала' находится в разработке.");
+    alert(`Функция 'Статистика канала' для канала ${selectedChannelId} находится в разработке.`);
   };
   
   const handleLogoutTelegram = () => {
     setTelegramUser(null);
-    // Optionally clear any stored Telegram session data if implemented
+    setSelectedChannelId(null);
+    setCreatingContestForChannelId(null);
+    // Note: managedChannels are kept in localStorage even on TG logout for UX convenience.
+    // To clear them on TG logout, uncomment: setManagedChannels([]);
   };
+
+  if (creatingContestForChannelId && telegramUser) {
+    return (
+      <CreateContestForm
+        channelId={creatingContestForChannelId}
+        telegramUserId={telegramUser.id}
+        onClose={() => setCreatingContestForChannelId(null)}
+        showToast={showToast}
+      />
+    );
+  }
 
   return (
     <Box className="landing-page" sx={{ maxWidth: '800px', mx: 'auto', py: 3 }}>
@@ -94,7 +157,7 @@ export const TelegramFeaturesPage: React.FC<TelegramFeaturesPageProps> = ({ user
             <Typography variant="body1" paragraph sx={{ textAlign: 'center', mb: 2 }}>
               Для использования функций управления через Telegram, пожалуйста, авторизуйтесь с помощью вашего Telegram аккаунта.
             </Typography>
-            <Alert severity="info" sx={{ mb: 3, textAlign: 'center' }}>
+            <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}> {/* Adjusted alignment */}
               Нажимая кнопку ниже, вы будете перенаправлены на сайт Telegram для авторизации.
               <br />
               Убедитесь, что бот <MuiLink href={botLink} target="_blank" rel="noopener noreferrer">{`@${TELEGRAM_BOT_USERNAME}`}</MuiLink> уже добавлен в ваш канал с правами администратора.
@@ -109,59 +172,104 @@ export const TelegramFeaturesPage: React.FC<TelegramFeaturesPageProps> = ({ user
         {telegramUser && !isLoading && (
           <>
             <Typography variant="h6" component="p" sx={{ textAlign: 'center', mb: 1 }}>
-              Вы авторизованы как: <strong>{telegramUser.first_name}{telegramUser.last_name ? ` ${telegramUser.last_name}`: ''} {telegramUser.username ? `(@${telegramUser.username})` : ''}</strong>
+              Авторизован как: <strong>{telegramUser.first_name}{telegramUser.last_name ? ` ${telegramUser.last_name}`: ''} {telegramUser.username ? `(@${telegramUser.username})` : ''}</strong>
             </Typography>
             {telegramUser.photo_url && (
                 <Box sx={{display: 'flex', justifyContent: 'center', mb: 2}}>
-                    <img src={telegramUser.photo_url} alt="User Avatar" style={{ borderRadius: '50%', width: '80px', height: '80px' }} />
+                    <img src={telegramUser.photo_url} alt="User Avatar" style={{ borderRadius: '50%', width: '60px', height: '60px' }} />
                 </Box>
             )}
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              <strong>Внимание:</strong> Безопасность данных, полученных от Telegram (особенно `hash`), должна проверяться на вашем сервере. Текущая реализация не включает серверную проверку `hash` и не безопасна для производственного использования без неё.
-            </Alert>
-
-            <Typography variant="body1" paragraph sx={{ textAlign: 'center', my: 3 }}>
-              Теперь, когда вы авторизованы, убедитесь, что бот <MuiLink href={botLink} target="_blank" rel="noopener noreferrer">{`@${TELEGRAM_BOT_USERNAME}`}</MuiLink> добавлен в администраторы вашего Telegram-канала с необходимыми правами для публикации сообщений и других действий.
-            </Typography>
             
-            <Typography variant="h5" component="h2" sx={{ textAlign: 'center', mb: 3, fontWeight: 500 }}>
-              Доступные действия:
+            <Typography variant="body1" paragraph sx={{ textAlign: 'center', my: 2 }}>
+              Добавьте Telegram-каналы, которыми вы управляете и в которые добавлен бот <MuiLink href={botLink} target="_blank" rel="noopener noreferrer">{`@${TELEGRAM_BOT_USERNAME}`}</MuiLink>.
             </Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center" sx={{ mb: 3 }}>
-              <Button
-                variant="contained"
-                startIcon={<EmojiEventsIcon />}
-                onClick={handleCreateContest}
-                size="large"
-                sx={{ textTransform: 'none' }}
-              >
-                Создать конкурс
-              </Button>
-              <Button
+
+            <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
+              <TextField
+                fullWidth
+                label="ID Канала Telegram (напр. @username или -100...)"
                 variant="outlined"
-                startIcon={<AddToQueueIcon />}
-                onClick={handleScheduledPosts}
-                size="large"
-                sx={{ textTransform: 'none' }}
-              >
-                Отложенные публикации
+                size="small"
+                value={channelInput}
+                onChange={(e) => setChannelInput(e.target.value)}
+              />
+              <Button variant="contained" onClick={handleAddChannel} startIcon={<AddIcon />} sx={{flexShrink: 0}}>
+                Добавить
               </Button>
-              <Button
-                variant="outlined"
-                startIcon={<BarChartIcon />}
-                onClick={handleChannelStats}
-                size="large"
-                sx={{ textTransform: 'none' }}
-              >
-                Статистика канала
-              </Button>
-            </Stack>
-            <Box sx={{ textAlign: 'center', mt: 3 }}>
+            </Box>
+
+            {managedChannels.length > 0 && (
+              <Box sx={{mb: 3}}>
+                <Typography variant="subtitle1" gutterBottom sx={{fontWeight: 500}}>Управляемые Каналы:</Typography>
+                <List dense>
+                  {managedChannels.map(id => (
+                    <ListItem
+                      key={id}
+                      selected={selectedChannelId === id}
+                      onClick={() => handleSelectChannel(id)}
+                      sx={{ 
+                        border: '1px solid var(--border-color)', 
+                        borderRadius: 'var(--border-radius-small)', 
+                        mb: 1, 
+                        bgcolor: selectedChannelId === id ? 'action.selected' : 'transparent',
+                        cursor: 'pointer',
+                        '&:hover': { bgcolor: 'action.hover'}
+                      }}
+                      secondaryAction={
+                        <IconButton edge="end" aria-label="Удалить канал" onClick={(e) => { e.stopPropagation(); handleRemoveChannel(id); }}>
+                          <DeleteIcon />
+                        </IconButton>
+                      }
+                    >
+                      <ListItemText primary={id} />
+                    </ListItem>
+                  ))}
+                </List>
+              </Box>
+            )}
+
+            {selectedChannelId && (
+              <Box sx={{mt: 2, p:2, border: '1px dashed var(--primary-color)', borderRadius: 'var(--border-radius)'}}>
+                <Typography variant="h6" component="h2" sx={{ textAlign: 'center', mb: 2, fontWeight: 500 }}>
+                  Действия для канала: {selectedChannelId}
+                </Typography>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center">
+                  <Button
+                    variant="contained"
+                    startIcon={<EmojiEventsIcon />}
+                    onClick={handleOpenContestForm}
+                    size="medium"
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Создать конкурс
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<AddToQueueIcon />}
+                    onClick={handleScheduledPosts}
+                    size="medium"
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Отложенные публикации
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<BarChartIcon />}
+                    onClick={handleChannelStats}
+                    size="medium"
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Статистика канала
+                  </Button>
+                </Stack>
+              </Box>
+            )}
+            
+            <Box sx={{ textAlign: 'center', mt: 4 }}>
               <Button variant="text" color="secondary" onClick={handleLogoutTelegram}>
                 Выйти из Telegram
               </Button>
             </Box>
-             {/* Сюда будет добавлена логика выбора канала и т.д. на следующих этапах */}
           </>
         )}
       </Paper>

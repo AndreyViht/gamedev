@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { AuthUser as SupabaseAuthUser, AuthSession as SupabaseSession, AuthStateChangeEvent as SupabaseAuthChangeEvent, AuthSubscription as SupabaseSubscription } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
@@ -743,8 +742,8 @@ export const App: React.FC = () => {
       case View.AIChatGuest: 
         if (!genAI) return <Box sx={{p:3, textAlign:'center'}}><MuiAlert severity="error">Gemini AI клиент не инициализирован.</MuiAlert></Box>;
         return <AIChatPage genAI={genAI} user={null} onAiRequestMade={handleAiRequestMade} onNavigate={handleNavigation} isInsideDashboard={false} globalAiRequestsMade={guestAiRequestsMade} globalAiRequestsLimit={GUEST_AI_REQUEST_LIMIT} />;
-      case View.TelegramFeatures: // New case
-        return <TelegramFeaturesPage onNavigate={handleNavigation} user={user} />;
+      case View.TelegramFeatures: 
+        return <TelegramFeaturesPage onNavigate={handleNavigation} user={user} showToast={showToast} />;
       case View.Dashboard:
         if (!user || !genAI) { handleNavigation(View.Login); return null; }
         return (
