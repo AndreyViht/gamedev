@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { AuthUser as SupabaseAuthUser, AuthSession as SupabaseSession, AuthStateChangeEvent as SupabaseAuthChangeEvent, AuthSubscription as SupabaseSubscription } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
@@ -36,7 +35,6 @@ import { AdminSupportChatsSection } from './components/admin/support/AdminSuppor
 import { AdminAdvertisingSettingsSection } from './components/admin/advertising/AdminAdvertisingSettingsSection';
 import { AdminOnSiteAdManagementSection } from './components/admin/advertising/AdminOnSiteAdManagementSection'; 
 import { AdminTelegramContestsSection } from './components/admin/telegram_contests/AdminTelegramContestsSection'; // Added
-import { TelegramFeaturesPage } from './components/telegram/TelegramFeaturesPage'; // New import
 import { ToastNotification, ToastConfig } from './components/common/ToastNotification';
 import { PersonalizationModal } from './components/common/PersonalizationModal';
 import { LegalInfoModal } from './components/common/LegalInfoModal';
@@ -574,13 +572,13 @@ export const App: React.FC = () => {
         if (user) { 
             if (!visitedBefore) localStorage.setItem(LS_KEY_HAS_VISITED_BEFORE, 'true');
             
-            if (currentView === View.Login || currentView === View.Register || currentView === View.AIChatGuest || currentView === View.VersionHistory || currentView === View.TelegramFeatures) {
+            if (currentView === View.Login || currentView === View.Register || currentView === View.AIChatGuest || currentView === View.VersionHistory) {
                 handleNavigation(View.Dashboard);
             } else if (currentView === View.AdminDashboard && !isUserAdmin(user)) {
                  handleNavigation(View.Dashboard);
             }
         } else { 
-            const allowedGuestViews = [View.Landing, View.Login, View.Register, View.AIChatGuest, View.VersionHistory, View.TelegramFeatures];
+            const allowedGuestViews = [View.Landing, View.Login, View.Register, View.AIChatGuest, View.VersionHistory];
             if (!allowedGuestViews.includes(currentView)) {
                 handleNavigation(View.Landing);
             }
@@ -625,8 +623,7 @@ export const App: React.FC = () => {
       const viewTitles: Record<View, string> = {
         [View.Landing]: "Главная", [View.Login]: "Вход", [View.Register]: "Регистрация",
         [View.Dashboard]: "Личный Кабинет", [View.AIChatGuest]: "AI Чат Гостя", 
-        [View.AdminDashboard]: "Админ-Панель", [View.VersionHistory]: "История Версий",
-        [View.TelegramFeatures]: "Функции Telegram", // New Title
+        [View.AdminDashboard]: "Админ-Панель", [View.VersionHistory]: "История Версий"
       };
       dynamicViewName = viewTitles[currentView] || APP_NAME;
       if (currentView === View.Dashboard) {
@@ -743,8 +740,6 @@ export const App: React.FC = () => {
       case View.AIChatGuest: 
         if (!genAI) return <Box sx={{p:3, textAlign:'center'}}><MuiAlert severity="error">Gemini AI клиент не инициализирован.</MuiAlert></Box>;
         return <AIChatPage genAI={genAI} user={null} onAiRequestMade={handleAiRequestMade} onNavigate={handleNavigation} isInsideDashboard={false} globalAiRequestsMade={guestAiRequestsMade} globalAiRequestsLimit={GUEST_AI_REQUEST_LIMIT} />;
-      case View.TelegramFeatures: // New case
-        return <TelegramFeaturesPage onNavigate={handleNavigation} user={user} />;
       case View.Dashboard:
         if (!user || !genAI) { handleNavigation(View.Login); return null; }
         return (

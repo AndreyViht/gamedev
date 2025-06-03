@@ -7,7 +7,6 @@ export enum View {
   AIChatGuest = 'AI_CHAT_GUEST',
   AdminDashboard = 'ADMIN_DASHBOARD',
   VersionHistory = 'VERSION_HISTORY', // Added
-  TelegramFeatures = 'TELEGRAM_FEATURES', // New view for Telegram features
 }
 
 export enum DashboardSection {
