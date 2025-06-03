@@ -1,12 +1,13 @@
 
 
+
 import React, { useEffect, useState } from 'react';
 import { UserProfile, PersonalizationSettings } from '../../types'; 
 import { View, AdminDashboardSection } from '../../enums/appEnums';
 import { isUserAdmin } from '../../utils/helpers';
 
 import { Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, useMediaQuery, IconButton, Toolbar, Divider, CircularProgress } from '@mui/material';
-import { useTheme, Theme as MuiTheme } from '@mui/material/styles'; // Corrected import for useTheme and MuiTheme
+import { useTheme, Theme } from '@mui/material/styles'; 
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import NewspaperIcon from '@mui/icons-material/Newspaper';
 import BuildIcon from '@mui/icons-material/Build';
@@ -36,7 +37,7 @@ const ADMIN_SIDEBAR_LOGO_ICON = '🛡️';
 export const AdminDashboardLayout: React.FC<AdminDashboardLayoutProps> = ({
     user, currentAdminSection, onNavigateAdminSection, isSidebarCollapsed, onToggleSidebar, children, onNavigateGlobal, showToast, personalizationSettings
 }) => {
-    const theme = useTheme<MuiTheme>(); // MuiTheme is alias for @mui/material/styles/Theme
+    const theme = useTheme<Theme>(); 
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     // For mobile, the drawer state is managed locally if needed, but primarily controlled by isSidebarCollapsed for desktop.
     // Let's assume isSidebarCollapsed prop directly influences the permanent drawer's appearance (iconic/compact/normal)

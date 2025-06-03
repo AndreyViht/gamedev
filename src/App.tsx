@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import type { User, Session, AuthChangeEvent, Subscription } from '@supabase/supabase-js';
+import { User, Session, AuthChangeEvent, Subscription } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
 
 import { ThemeProvider, createTheme, CssBaseline, Box, Fab, CircularProgress, Typography, Alert as MuiAlert } from '@mui/material';
@@ -279,6 +279,7 @@ export const App: React.FC = () => {
     
     const userToProcess: UserProfile = {
         ...baseUser,
+        // Prioritize existing app-specific metadata over potentially conflicting general user_metadata from Supabase/OAuth
         user_metadata: { ...baseUser.user_metadata, ...existingProfileData }, 
     };
     
@@ -287,6 +288,16 @@ export const App: React.FC = () => {
     let needsServerUpdate = false;
     const now = new Date();
     const todayDateString = now.toISOString().split('T')[0];
+
+    // Handle display_name: if our app's display_name is not set, try to use full_name from OAuth (e.g., Google)
+    if (!metadata.display_name && metadata.full_name) {
+        metadata.display_name = metadata.full_name;
+        needsServerUpdate = true;
+    } else if (!metadata.display_name) { // Fallback if full_name is also missing
+        metadata.display_name = userToProcess.email?.split('@')[0] || "Пользователь";
+        needsServerUpdate = true;
+    }
+
 
     let isAdminMatch = false;
     for (const adminCred of ADMIN_USERS) {
@@ -305,7 +316,6 @@ export const App: React.FC = () => {
     }
     
     if (!metadata.client_key) { metadata.client_key = generateClientKey(); needsServerUpdate = true; }
-    if (!metadata.display_name) { metadata.display_name = userToProcess.email?.split('@')[0] || "Пользователь"; needsServerUpdate = true; }
     
     metadata.activity_points = typeof metadata.activity_points === 'number' ? metadata.activity_points : 0;
     metadata.awarded_achievement_points_log = metadata.awarded_achievement_points_log || {};
@@ -336,17 +346,15 @@ export const App: React.FC = () => {
     for (const taskDef of dailyTasksList) {
         let userTask = currentDailyTasks.find(ut => ut.task_id === taskDef.id);
         if (userTask) {
-            // Ensure AI fields exist if not present from older data structures
             userTask.ai_generated_name = userTask.ai_generated_name ?? undefined;
             userTask.ai_generated_description = userTask.ai_generated_description ?? undefined;
             userTask.ai_generated_points = userTask.ai_generated_points ?? undefined;
             userTask.is_ai_refreshed = userTask.is_ai_refreshed ?? false;
             userTask.claimed_at_timestamp = userTask.claimed_at_timestamp ?? undefined;
 
-            if (userTask.last_progress_date !== todayDateString && !userTask.claimed_at_timestamp) { // Reset if new day AND not currently in cooldown
+            if (userTask.last_progress_date !== todayDateString && !userTask.claimed_at_timestamp) { 
                 userTask.current_value = 0; userTask.completed_today = false; userTask.claimed_today = false;
                 userTask.last_progress_date = todayDateString; 
-                // Don't reset AI generated content here, it resets after timer
                 tasksUpdated = true;
             }
             processedTaskProgress.push(userTask);
@@ -398,12 +406,22 @@ export const App: React.FC = () => {
     
     if (needsServerUpdate) {
         try {
-            const { data: updatedUserData, error: updateError } = await supabase.auth.updateUser({ data: metadata });
+            // For OAuth sign-ups, some metadata (like full_name) might come from the provider.
+            // We merge it here but ensure our app-specific fields take precedence or are initialized.
+            const updatePayload = { ...userToProcess.user_metadata, ...metadata };
+
+            const { data: updatedUserData, error: updateError } = await supabase.auth.updateUser({ data: updatePayload });
             if (updateError) {
-                return { ...userToProcess, user_metadata: metadata } as UserProfile; 
+                console.error("Error updating user metadata during session processing:", updateError);
+                return { ...userToProcess, user_metadata: updatePayload } as UserProfile; 
             }
-            return updatedUserData?.user as UserProfile || { ...userToProcess, user_metadata: metadata } as UserProfile;
+            // Supabase might return the user object with its own user_metadata structure.
+            // We need to ensure our app's user_metadata structure is preserved.
+            const finalUser = updatedUserData?.user as UserProfile || { ...userToProcess, user_metadata: updatePayload } as UserProfile;
+            finalUser.user_metadata = { ...finalUser.user_metadata, ...updatePayload };
+            return finalUser;
         } catch (e) {
+            console.error("Exception updating user metadata during session processing:", e);
             return { ...userToProcess, user_metadata: metadata } as UserProfile; 
         }
     }
@@ -484,7 +502,10 @@ export const App: React.FC = () => {
         let currentUserAuth = activeSession?.user as User | null;
         let processedCurrentUser: UserProfile | null = null;
         if (currentUserAuth) {
-            processedCurrentUser = await processUserSessionLogic(currentUserAuth, false); 
+            // For initial load, check if user_metadata already has our custom fields
+            // If not, processUserSessionLogic will initialize them.
+            const potentialExistingProfile = { ...currentUserAuth, user_metadata: currentUserAuth.user_metadata || {} } as UserProfile;
+            processedCurrentUser = await processUserSessionLogic(potentialExistingProfile, false); 
         }
         setUser(processedCurrentUser); 
         setSessionState(activeSession);
@@ -502,18 +523,21 @@ export const App: React.FC = () => {
         try {
             let authChangeUserAuth = newSession?.user as User | null;
             let processedAuthChangeUser: UserProfile | null = null;
-            const isNewSignInEvent = event === 'SIGNED_IN' && (!sessionState || !sessionState.user || sessionState.user.id !== newSession?.user.id);
+            // isNewSignInEvent is true if it's a SIGNED_IN event AND the user ID is different from the previous session's user ID
+            // or if there was no previous session. This helps differentiate a new login from a token refresh.
+            const isNewSignInEvent = event === 'SIGNED_IN' && (!sessionState || !sessionState.user || sessionState.user.id !== newSession?.user?.id);
             
             if (authChangeUserAuth) {
-                processedAuthChangeUser = await processUserSessionLogic(authChangeUserAuth, isNewSignInEvent);
+                 // Pass existing app-specific metadata if available, otherwise it's a new user or OAuth user
+                const potentialExistingProfileOnChange = { ...authChangeUserAuth, user_metadata: authChangeUserAuth.user_metadata || {} } as UserProfile;
+                processedAuthChangeUser = await processUserSessionLogic(potentialExistingProfileOnChange, isNewSignInEvent);
             }
             
             setUser(processedAuthChangeUser); 
             setSessionState(newSession); 
             
-            // Navigation logic moved to the second useEffect
             if (event === 'PASSWORD_RECOVERY') {
-                 setCurrentView(View.Login); // Use setCurrentView directly
+                 setCurrentView(View.Login); 
                  showToast("Введите новый пароль или следуйте инструкциям, если вы запросили сброс.", "info");
             } else if (event === 'SIGNED_OUT') {
                 const lastUserId = sessionState?.user?.id; 
@@ -571,12 +595,6 @@ export const App: React.FC = () => {
                 const elapsed = (Date.now() - tp.claimed_at_timestamp) / 1000;
                 if (elapsed >= 24 * 60 * 60) { // Timer expired
                     needsUpdate = true;
-                    // We will rely on AccountSection's useEffect to handle the AI call and actual reset,
-                    // but we can mark it for update here by changing last_progress_date or a similar flag
-                    // to ensure AccountSection's logic picks it up even if it wasn't already "running" a timer.
-                    // For simplicity, AccountSection's timer logic should handle this naturally on load.
-                    // This effect is more of a trigger if AccountSection isn't already handling it.
-                    // However, given AccountSection's useEffect on daily_task_progress, it should.
                 }
             } else if(tp.last_progress_date !== todayDateString) { // New day, reset non-cooldown tasks
                 needsUpdate = true;
@@ -585,8 +603,9 @@ export const App: React.FC = () => {
             return tp;
         });
         if(needsUpdate) {
-            // console.log("App.tsx: Detected tasks needing refresh/reset on load.");
-            // updateUserProfile({daily_task_progress: updatedTasksProgress}); // This might trigger AccountSection's logic
+            // The actual refresh logic (including AI call for new tasks) is in DailyTasksModal and AccountSection.
+            // This effect primarily ensures data is consistent on app load for timer display.
+            // If a task's timer expired offline, DailyTasksModal's useEffect will trigger refreshTaskAfterTimer.
         }
     }
   }, [user, currentView, currentDashboardSection, updateUserProfile]);
@@ -632,7 +651,7 @@ export const App: React.FC = () => {
     if (!supabase) { showToast("Ошибка: Supabase не инициализирован.", "error"); return; }
     const { error: signOutError } = await supabase.auth.signOut();
     if (signOutError) { showToast(`Ошибка выхода: ${signOutError.message}`, "error");} 
-    else { // Explicitly navigate to landing on logout
+    else { 
         handleNavigation(View.Landing);
     }
   };

@@ -1,4 +1,4 @@
-import type { User } from '@supabase/supabase-js';
+import { User } from '@supabase/supabase-js';
 
 export interface UserProfile extends User {
     id: string;

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -12,7 +13,7 @@ import { APP_NAME, MAX_SAVED_CHATS, USER_AI_REQUEST_LIMIT, PREMIUM_USER_AI_REQUE
 import { aiModels, DEFAULT_AI_MODEL_ID, AIModelConfig } from '../../config/aiModels';
 
 import { Box, TextField, Button, IconButton, Typography, Paper, List, ListItem, ListItemButton, ListItemText, ListItemSecondaryAction, CircularProgress, Alert, useMediaQuery, Fab, Drawer } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, Theme } from '@mui/material/styles';
 import SendIcon from '@mui/icons-material/Send';
 import SettingsIcon from '@mui/icons-material/Settings';
 import EditIcon from '@mui/icons-material/Edit';
@@ -51,7 +52,7 @@ export const AIChatPage: React.FC<AIChatPageProps> = ({ genAI: ai, user, onAiReq
   const [elapsedThinkingTime, setElapsedThinkingTime] = useState<number>(0);
   const thinkingIntervalRef = useRef<number | null>(null);
 
-  const theme = useTheme();
+  const theme = useTheme<Theme>();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm')); // Use 'sm' or 'md' as per design
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 

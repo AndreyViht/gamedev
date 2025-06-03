@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -10,7 +11,7 @@ import { NameInputModal } from '../../common/NameInputModal';
 import { CodeBlock } from '../../common/CodeBlock'; 
 
 import { Box, TextField, Button, IconButton, Typography, Paper, List, ListItem, ListItemButton, ListItemText, CircularProgress, Alert, useMediaQuery, Fab, Drawer, Chip } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, Theme } from '@mui/material/styles';
 import SendIcon from '@mui/icons-material/Send';
 import MenuIcon from '@mui/icons-material/Menu';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
@@ -41,7 +42,7 @@ export const HelpChatSection: React.FC<HelpChatSectionProps> = ({ user, onUserPr
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
     
-    const theme = useTheme();
+    const theme = useTheme<Theme>();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
