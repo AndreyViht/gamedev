@@ -1,4 +1,3 @@
-
 // @ts-ignore This directive suppresses the TypeScript error for the next line if the type definition file is not found locally.
 /// <reference types="npm:@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
@@ -15,6 +14,7 @@ interface ContestDetails {
   imageUrl?: string;
   buttonText?: string;
   buttonUrl?: string;
+  targetChannelId?: string; // Added to receive dynamic channel ID
 }
 
 const corsHeaders = {
@@ -31,7 +31,6 @@ async function isAdmin(supabaseAdminClient: any, jwt: string): Promise<boolean> 
     return false;
   }
 
-  // These should match how ADMIN_USERS is defined in your frontend constants
   const adminVihtIdsConfig = Deno.env.get('ADMIN_USER_VIHT_IDS_CONFIG')?.split(',') || [];
   const adminEmailsConfig = Deno.env.get('ADMIN_USER_EMAILS_CONFIG')?.split(',') || [];
   
@@ -55,22 +54,19 @@ serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get('APP_SUPABASE_URL');
-    // For admin check, we need service_role if we are checking against user_metadata directly from auth.users
-    // Or anon_key if we get user from JWT and trust its metadata (but metadata can be stale).
-    // Let's use service_role for a more robust admin check.
     const serviceRoleKey = Deno.env.get('APP_SERVICE_ROLE_KEY');
     const telegramBotToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
-    const telegramChannelId = Deno.env.get('TELEGRAM_CHANNEL_ID');
+    // TELEGRAM_CHANNEL_ID is now a fallback/default
+    const defaultTelegramChannelIdFromEnv = Deno.env.get('TELEGRAM_CHANNEL_ID'); 
 
-    if (!supabaseUrl || !serviceRoleKey || !telegramBotToken || !telegramChannelId) {
-      console.error('Missing environment variables for Supabase or Telegram.');
-      return new Response(JSON.stringify({ error: 'Server configuration error.' }), {
+    if (!supabaseUrl || !serviceRoleKey || !telegramBotToken ) { // defaultTelegramChannelIdFromEnv can be optional if targetChannelId is always provided
+      console.error('Missing critical environment variables (Supabase URL, Service Role Key, Telegram Bot Token).');
+      return new Response(JSON.stringify({ error: 'Server configuration error: Missing critical credentials.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       });
     }
     
-    // Admin check
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Missing authorization header' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -87,9 +83,22 @@ serve(async (req: Request) => {
         });
     }
 
-
     const body: ContestDetails = await req.json();
-    const { title, description, prize, imageUrl, buttonText, buttonUrl } = body;
+    const { title, description, prize, imageUrl, buttonText, buttonUrl, targetChannelId } = body;
+
+    // Determine the channel ID to use
+    const effectiveChannelId = targetChannelId && typeof targetChannelId === 'string' && targetChannelId.trim() !== ''
+                                ? targetChannelId.trim()
+                                : defaultTelegramChannelIdFromEnv;
+
+    if (!effectiveChannelId) {
+      console.error('Target channel ID is not specified and no default channel ID is configured.');
+      return new Response(JSON.stringify({ error: 'Channel ID for posting is not configured. Please specify targetChannelId or set TELEGRAM_CHANNEL_ID in function env.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      });
+    }
+
 
     if (!title || !description || !prize) {
       return new Response(JSON.stringify({ error: 'Title, description, and prize are required.' }), {
@@ -104,7 +113,7 @@ serve(async (req: Request) => {
     text += `Подробности и участие как указано в описании. Желаем удачи! ✨`;
 
     const payload: any = {
-      chat_id: telegramChannelId,
+      chat_id: effectiveChannelId, // Use the determined channel ID
       parse_mode: 'Markdown',
     };
 
@@ -126,7 +135,6 @@ serve(async (req: Request) => {
         payload.text = text;
     }
 
-
     const response = await fetch(telegramApiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -136,14 +144,14 @@ serve(async (req: Request) => {
     const responseData = await response.json();
 
     if (!response.ok || !responseData.ok) {
-      console.error('Telegram API error:', responseData);
-      return new Response(JSON.stringify({ error: `Telegram API error: ${responseData.description || 'Unknown error'}` }), {
+      console.error(`Telegram API error for channel ${effectiveChannelId}:`, responseData);
+      return new Response(JSON.stringify({ error: `Telegram API error posting to ${effectiveChannelId}: ${responseData.description || 'Unknown error'}` }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: response.status,
       });
     }
 
-    return new Response(JSON.stringify({ success: true, message: 'Конкурс опубликован!', telegramResponse: responseData }), {
+    return new Response(JSON.stringify({ success: true, message: `Конкурс опубликован в канал ${effectiveChannelId}!`, telegramResponse: responseData }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
