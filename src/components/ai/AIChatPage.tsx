@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { GoogleGenAI, GenerateContentResponse, Part } from '@google/genai';
+import { GoogleGenAI, GenerateContentResponse, Part, GenerateImagesResponse } from '@google/genai';
 import { UserProfile, ChatMessage, ChatSession, AIModelId } from '../../types';
 import { View } from '../../enums/appEnums';
 import { CodeBlock } from '../common/CodeBlock';
@@ -211,18 +211,36 @@ export const AIChatPage: React.FC<AIChatPageProps> = ({ genAI: ai, user, onAiReq
     try {
       let modelMessage: ChatMessage;
       if (selectedModelConfig.id === VIHT_IMAGE_GEN_ID) {
-        modelMessage = { id: `msg_${Date.now()}_model_dev`, sender: 'model', text: `Функция генерации изображений для модели '${selectedModelConfig.displayName}' находится в разработке. Пожалуйста, попробуйте позже или выберите другую модель.`, timestamp: new Date() };
+        const imageResult: GenerateImagesResponse = await ai.models.generateImages({
+            model: selectedModelConfig.geminiModelName,
+            prompt: userMessageText,
+            config: { numberOfImages: 1, outputMimeType: 'image/png' }
+        });
+        if (imageResult.generatedImages && imageResult.generatedImages.length > 0 && imageResult.generatedImages[0].image?.imageBytes) {
+            const base64ImageBytes: string = imageResult.generatedImages[0].image.imageBytes;
+            const imageUrl = `data:image/png;base64,${base64ImageBytes}`;
+            modelMessage = { 
+                id: `msg_${Date.now()}_model_image`, 
+                sender: 'model', 
+                text: `Изображение сгенерировано по запросу: "${userMessageText}"`, 
+                timestamp: new Date(),
+                filePreview: imageUrl,
+                fileType: 'image/png'
+            };
+        } else {
+            throw new Error("Не удалось сгенерировать изображение или ответ не содержит данных изображения.");
+        }
       } else {
         const parts: Part[] = [{ text: userMessageText }];
         const systemInstruction = selectedModelConfig.getSystemInstruction(userNameForAI, currentChat.customInstruction);
         const result: GenerateContentResponse = await ai.models.generateContent({ model: selectedModelConfig.geminiModelName, contents: [{ role: "user", parts }], config: { systemInstruction } });
         modelMessage = { id: `msg_${Date.now()}_model_text`, sender: 'model', text: result.text, timestamp: new Date() };
       }
-      setChatSessions(prev => prev.map(cs => cs.id === activeChatId ? { ...cs, messages: [...cs.messages, modelMessage], systemInstructionSnapshot: selectedModelConfig.id !== VIHT_IMAGE_GEN_ID ? selectedModelConfig.getSystemInstruction(userNameForAI, currentChat.customInstruction) : undefined, modelDisplayName: selectedModelConfig.displayName, modelVersion: selectedModelConfig.version, } : cs ));
+      setChatSessions(prev => prev.map(cs => cs.id === activeChatId ? { ...cs, messages: [...cs.messages, modelMessage], systemInstructionSnapshot: selectedModelConfig.getSystemInstruction(userNameForAI, currentChat.customInstruction), modelDisplayName: selectedModelConfig.displayName, modelVersion: selectedModelConfig.version, } : cs ));
       onAiRequestMade();
     } catch (e: any) {
       let originalErrorMessage = e.message || "Неизвестная ошибка";
-      const regionErrorKeywords = ["region", "not available in your region", "географическое ограничение", "недоступно в вашем регионе", "unsupported language"]; // Added "unsupported language" as it's common with region blocks.
+      const regionErrorKeywords = ["region", "not available in your region", "географическое ограничение", "недоступно в вашем регионе", "unsupported language"]; 
       
       let displayErrorMessage = `Ошибка ${selectedModelConfig.displayName}: ${originalErrorMessage}`;
       if (regionErrorKeywords.some(keyword => originalErrorMessage.toLowerCase().includes(keyword))) {
@@ -256,7 +274,7 @@ export const AIChatPage: React.FC<AIChatPageProps> = ({ genAI: ai, user, onAiReq
   };
 
   const limitReached = aiRequestsMade >= aiRequestsLimit;
-  const baseInputAreaDisabled = isLoading || limitReached;
+  const baseInputAreaDisabled = isLoading || limitReached || (currentChat?.selectedModelId === VIHT_IMAGE_GEN_ID && !isUserPremium); // Also disable if image gen and not premium
   const sendActionDisabled = baseInputAreaDisabled || !input.trim();
 
   if (!currentChat && chatSessions.length > 0 && !activeChatId && chatSessions[0]?.id) {
@@ -274,7 +292,11 @@ export const AIChatPage: React.FC<AIChatPageProps> = ({ genAI: ai, user, onAiReq
   
   const currentModelConfig = aiModels[currentChat.selectedModelId] || aiModels[DEFAULT_AI_MODEL_ID];
   let placeholderText = `Сообщение для ${currentModelConfig.displayName || 'AI'}...`;
-  if (currentModelConfig.id === VIHT_IMAGE_GEN_ID) placeholderText = `Запрос для ${currentModelConfig.displayName} (в разработке)...`;
+  if (currentModelConfig.id === VIHT_IMAGE_GEN_ID && !isUserPremium) {
+    placeholderText = `Модель ${currentModelConfig.displayName} требует Премиум-статус.`;
+  } else if (currentModelConfig.id === VIHT_IMAGE_GEN_ID) {
+    placeholderText = `Запрос для ${currentModelConfig.displayName}... (напр., 'робот на скейтборде')`;
+  }
   if (limitReached) placeholderText = "Лимит запросов достигнут";
 
   const chatSessionsSidebarContent = (
@@ -372,7 +394,7 @@ export const AIChatPage: React.FC<AIChatPageProps> = ({ genAI: ai, user, onAiReq
                 )}
                 <Box sx={{overflow: 'hidden'}}>
                     <Typography variant={isMobile ? "subtitle1" : "h6"} className="chat-page-title" noWrap title={currentChat.name} sx={{fontSize: isMobile ? '1rem' : '1.15rem'}}>{currentChat.name}</Typography>
-                    {!isMobile && <Typography variant="caption" className="chat-model-info">Модель: {currentModelConfig.displayName}{currentChat.selectedModelId === VIHT_IMAGE_GEN_ID && ` (генерация изображений в разработке)`}</Typography>}
+                    {!isMobile && <Typography variant="caption" className="chat-model-info">Модель: {currentModelConfig.displayName}{currentChat.selectedModelId === VIHT_IMAGE_GEN_ID && ` (генерация изображений)`}</Typography>}
                 </Box>
             </Box>
             <Box className="chat-controls" sx={{display: 'flex', alignItems: 'center'}}>
@@ -385,7 +407,14 @@ export const AIChatPage: React.FC<AIChatPageProps> = ({ genAI: ai, user, onAiReq
             {currentChat.messages.map(msg => (
             <Box key={msg.id} className={`chat-message ${msg.sender} chat-message-appear`} sx={{ display: 'flex', mb: 1.5, justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start' }}>
                 <Paper elevation={1} className="message-bubble" sx={{ p: '10px 15px', borderRadius: '18px', maxWidth: isMobile ? '85%' : '70%', bgcolor: msg.sender === 'user' ? 'primary.main' : 'background.paper', color: msg.sender === 'user' ? 'primary.contrastText' : 'text.primary', borderBottomRightRadius: msg.sender === 'user' ? '8px' : '18px', borderBottomLeftRadius: msg.sender === 'model' ? '8px' : '18px' }}>
-                  <ReactMarkdown children={msg.text} remarkPlugins={[remarkGfm]} components={{ code: ({node, inline, className, children, ...props}: CustomCodeProps) => { const match = /language-(\w+)/.exec(className || ''); return !inline && match ? <CodeBlock language={match[1]}>{String(children).replace(/\n$/, '')}</CodeBlock> : <code className={className} {...props}>{children}</code>; }}} />
+                  {msg.filePreview && msg.fileType === 'image/png' ? (
+                      <>
+                        <ReactMarkdown children={msg.text} remarkPlugins={[remarkGfm]} components={{ code: ({node, inline, className, children, ...props}: CustomCodeProps) => { const match = /language-(\w+)/.exec(className || ''); return !inline && match ? <CodeBlock language={match[1]}>{String(children).replace(/\n$/, '')}</CodeBlock> : <code className={className} {...props}>{children}</code>; }}} />
+                        <img src={msg.filePreview} alt="Сгенерированное изображение" className="generated-image" />
+                      </>
+                  ) : (
+                     <ReactMarkdown children={msg.text} remarkPlugins={[remarkGfm]} components={{ code: ({node, inline, className, children, ...props}: CustomCodeProps) => { const match = /language-(\w+)/.exec(className || ''); return !inline && match ? <CodeBlock language={match[1]}>{String(children).replace(/\n$/, '')}</CodeBlock> : <code className={className} {...props}>{children}</code>; }}} />
+                  )}
                   <Typography variant="caption" display="block" sx={{ textAlign: msg.sender === 'user' ? 'right' : 'left', opacity: 0.7, mt: 0.5 }}>{msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Typography>
                 </Paper>
             </Box>
@@ -404,7 +433,7 @@ export const AIChatPage: React.FC<AIChatPageProps> = ({ genAI: ai, user, onAiReq
                     <Paper elevation={1} className="message-bubble" sx={{ p: '10px 15px', borderRadius: '18px', display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'background.paper' }}>
                         <CircularProgress size={20} />
                         <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
-                            {currentModelConfig.displayName} (в разработке) обрабатывает запрос...
+                            {currentModelConfig.displayName} генерирует изображение...
                         </Typography>
                     </Paper>
                 </Box>

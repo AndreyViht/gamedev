@@ -1,3 +1,4 @@
+
 /* index.css */
 /* Basic Reset & Root Variables */
 :root {
@@ -614,6 +615,14 @@ body,
 }
 .message-bubble.user .message-timestamp { text-align: right; color: color-mix(in srgb, var(--vk-chat-user-text) 70%, transparent); }
 .message-bubble.model .message-timestamp, .message-bubble.admin .message-timestamp { text-align: left; }
+
+.message-bubble img.generated-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--border-radius-small);
+  margin-top: 8px;
+  display: block;
+}
 
 
 .ai-chat-page.vk-style .chat-input-area,
@@ -1377,14 +1386,3 @@ body,
     padding-left: 16px; /* Reduced */
     padding-right: 12px; /* Reduced */
 }
-```CDATA[</content>
-  </change>
-</changes>
-```
-I've created two new components:
-*   `src/components/dashboard/achievements/AchievementsModal.tsx`
-*   `src/components/dashboard/daily_tasks/DailyTasksModal.tsx`
-
-The `AccountSection.tsx` has been updated to include buttons that will toggle these modals. The logic for displaying, interacting with, and updating daily tasks (including timers and AI refresh) has been moved into `DailyTasksModal.tsx`. The achievements display is now handled by `AchievementsModal.tsx`.
-
-This should make the main Account page cleaner and more focused, especially on mobile, while keeping all the information accessible. I've also made some minor CSS adjustments for the modal content display.
