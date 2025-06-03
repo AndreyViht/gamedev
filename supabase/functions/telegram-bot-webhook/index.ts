@@ -1,3 +1,4 @@
+
 // @ts-ignore This directive suppresses the TypeScript error for the next line if the type definition file is not found locally.
 /// <reference types="npm:@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
@@ -14,6 +15,7 @@ const corsHeaders = {
 
 // Define a simple type for the expected Telegram update structure (can be expanded)
 interface TelegramUpdate {
+  update_id: number;
   message?: {
     message_id: number;
     from?: {
@@ -42,7 +44,9 @@ serve(async (req: Request) => {
     // Create a clone of the request to read its body, as body can only be read once.
     const reqCloneForBody = req.clone();
     rawBodyTextForDebug = await reqCloneForBody.text();
-    console.log(`[telegram-bot-webhook] Raw request body (text): ${rawBodyTextForDebug}`);
+    // Log only a snippet if it's too long to avoid flooding logs
+    const bodySnippet = rawBodyTextForDebug.length > 1000 ? rawBodyTextForDebug.substring(0, 1000) + "..." : rawBodyTextForDebug;
+    console.log(`[telegram-bot-webhook] Raw request body (text snippet): ${bodySnippet}`);
   } catch (e) {
     console.error(`[telegram-bot-webhook] Error reading raw request body: ${e.message}`);
     rawBodyTextForDebug = `Error reading body: ${e.message}`;
@@ -65,19 +69,16 @@ serve(async (req: Request) => {
       });
     }
 
-    // The body might have already been consumed by the debug log if not cloned.
-    // We use the original `req` object here for parsing JSON.
-    // If the debug log `await reqCloneForBody.text()` failed, `req.json()` might also fail.
     let update: TelegramUpdate;
     try {
         update = await req.json();
     } catch (jsonParseError) {
-        console.error(`[telegram-bot-webhook] Failed to parse JSON from request body. Raw body was: ${rawBodyTextForDebug}`, jsonParseError);
+        console.error(`[telegram-bot-webhook] Failed to parse JSON from request body. Raw body was (snippet): ${rawBodyTextForDebug.substring(0,1000)}`, jsonParseError);
         return new Response(JSON.stringify({ error: 'Invalid JSON in request body.' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400
         });
     }
-    console.log(`[telegram-bot-webhook] Parsed update: ${JSON.stringify(update, null, 2)}`);
+    console.log(`[telegram-bot-webhook] Parsed update ID: ${update.update_id}`);
 
 
     if (update.message && update.message.text && update.message.text.startsWith('/start ')) {
@@ -122,7 +123,9 @@ serve(async (req: Request) => {
             console.error(`[telegram-bot-webhook] Telegram API error sending Web App button to chat ${chatId}:`, tgResponseData);
           }
           
-          return new Response(JSON.stringify({ success: true, message_sent: tgResponseData.ok }), {
+          // Telegram expects a 200 OK response to the webhook, even if sending the message fails.
+          // The actual content of the response to Telegram webhook doesn't usually matter unless you're using specific reply methods.
+          return new Response(JSON.stringify({ success: true, message_sent_to_user: tgResponseData.ok }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
           });
         } else {
@@ -132,19 +135,20 @@ serve(async (req: Request) => {
          console.log('[telegram-bot-webhook] /start command payload did not match "contest_XXX" format.');
       }
     } else {
-       console.log('[telegram-bot-webhook] Update did not contain a relevant /start message.');
+       console.log('[telegram-bot-webhook] Update did not contain a relevant /start message or message text.');
     }
 
     // Default response if not the specific /start contest_ command
-    return new Response(JSON.stringify({ message: 'Update received, but no action taken for this specific command.' }), {
+    // Always return 200 OK to Telegram to acknowledge receipt of the webhook.
+    return new Response(JSON.stringify({ message: 'Update received, but no specific action taken for this command.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
     });
 
   } catch (error) {
     console.error('[telegram-bot-webhook] Main try-catch error:', error);
-    // Note: JSON parsing error is handled above, this is for other unexpected errors.
+    // Acknowledge receipt to Telegram even in case of server error to prevent retries.
     return new Response(JSON.stringify({ error: 'Internal server error processing update. Check function logs.' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200, // Acknowledge receipt
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200, 
     });
   }
 });
