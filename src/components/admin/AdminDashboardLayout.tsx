@@ -1,13 +1,12 @@
 
 
-
 import React, { useEffect, useState } from 'react';
 import { UserProfile, PersonalizationSettings } from '../../types'; 
 import { View, AdminDashboardSection } from '../../enums/appEnums';
 import { isUserAdmin } from '../../utils/helpers';
 
 import { Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, useMediaQuery, IconButton, Toolbar, Divider, CircularProgress } from '@mui/material';
-import { useTheme, Theme } from '@mui/material/styles'; 
+import { useTheme, Theme as MuiTheme } from '@mui/material/styles'; // Corrected import for useTheme and MuiTheme
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import NewspaperIcon from '@mui/icons-material/Newspaper';
 import BuildIcon from '@mui/icons-material/Build';
@@ -16,7 +15,6 @@ import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import AdUnitsIcon from '@mui/icons-material/AdUnits';
 import QueryStatsIcon from '@mui/icons-material/QueryStats'; // Added for Site Stats
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'; // Icon for Contests
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MenuIcon from '@mui/icons-material/Menu'; // Hamburger icon
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -38,7 +36,7 @@ const ADMIN_SIDEBAR_LOGO_ICON = '🛡️';
 export const AdminDashboardLayout: React.FC<AdminDashboardLayoutProps> = ({
     user, currentAdminSection, onNavigateAdminSection, isSidebarCollapsed, onToggleSidebar, children, onNavigateGlobal, showToast, personalizationSettings
 }) => {
-    const theme = useTheme<Theme>(); 
+    const theme = useTheme<MuiTheme>(); // MuiTheme is alias for @mui/material/styles/Theme
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     // For mobile, the drawer state is managed locally if needed, but primarily controlled by isSidebarCollapsed for desktop.
     // Let's assume isSidebarCollapsed prop directly influences the permanent drawer's appearance (iconic/compact/normal)
@@ -75,7 +73,6 @@ export const AdminDashboardLayout: React.FC<AdminDashboardLayoutProps> = ({
         { text: 'Чаты Поддержки', icon: <SupportAgentIcon />, section: AdminDashboardSection.AdminSupportChats },
         { text: 'Тарифы Рекламы', icon: <MonetizationOnIcon />, section: AdminDashboardSection.AdminAdvertisingSettings },
         { text: 'Реклама на Сайте', icon: <AdUnitsIcon />, section: AdminDashboardSection.AdminOnSiteAdManagement },
-        { text: 'Telegram Конкурсы', icon: <EmojiEventsIcon />, section: AdminDashboardSection.AdminTelegramContests }, // Added
     ];
 
     const drawerContent = (

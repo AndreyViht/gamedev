@@ -201,14 +201,14 @@ export const AdminUsersSection: React.FC<AdminUsersSectionProps> = ({ currentUse
                 <Paper sx={{ p: 3, mt: 2, borderRadius: 'var(--border-radius-large)' }}>
                     <Typography variant="h6" gutterBottom>Информация о пользователе</Typography>
                     <Grid container spacing={1.5}>
-                        <Grid xs={12} sm={6}><Typography variant="body2"><strong>Логин:</strong> {metadata.display_name || 'N/A'}</Typography></Grid>
-                        <Grid xs={12} sm={6}><Typography variant="body2"><strong>Email:</strong> {searchedUser.email || 'N/A'}</Typography></Grid>
-                        <Grid xs={12} sm={6}><Typography variant="body2"><strong>ID (viht):</strong> {metadata.user_viht_id || 'N/A'}</Typography></Grid>
-                        <Grid xs={12} sm={6}><Typography variant="body2"><strong>Supabase ID:</strong> {searchedUser.id || 'N/A'}</Typography></Grid>
-                        <Grid xs={12} sm={6}><Typography variant="body2"><strong>Премиум:</strong> {metadata.is_premium ? `Да (до ${formatDate(metadata.premium_expires_at)})` : 'Нет'}</Typography></Grid>
-                        <Grid xs={12} sm={6}><Typography variant="body2"><strong>AI Запросы:</strong> {metadata.ai_requests_made ?? 0} / {metadata.ai_requests_limit ?? (metadata.is_premium ? PREMIUM_USER_AI_REQUEST_LIMIT : USER_AI_REQUEST_LIMIT)}</Typography></Grid>
-                        <Grid xs={12} sm={6}><Typography variant="body2"><strong>Сброс запросов:</strong> {nextReset ? formatDate(nextReset) : 'N/A'}</Typography></Grid>
-                        <Grid xs={12} sm={6}><Typography variant="body2"><strong>Баллы Активности:</strong> {metadata.activity_points || 0} ✨</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>Логин:</strong> {metadata.display_name || 'N/A'}</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>Email:</strong> {searchedUser.email || 'N/A'}</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>ID (viht):</strong> {metadata.user_viht_id || 'N/A'}</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>Supabase ID:</strong> {searchedUser.id || 'N/A'}</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>Премиум:</strong> {metadata.is_premium ? `Да (до ${formatDate(metadata.premium_expires_at)})` : 'Нет'}</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>AI Запросы:</strong> {metadata.ai_requests_made ?? 0} / {metadata.ai_requests_limit ?? (metadata.is_premium ? PREMIUM_USER_AI_REQUEST_LIMIT : USER_AI_REQUEST_LIMIT)}</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>Сброс запросов:</strong> {nextReset ? formatDate(nextReset) : 'N/A'}</Typography></Grid>
+                        <Grid item={true} xs={12} sm={6}><Typography variant="body2"><strong>Баллы Активности:</strong> {metadata.activity_points || 0} ✨</Typography></Grid>
                     </Grid>
                     
                     <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start' }}>

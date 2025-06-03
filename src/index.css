@@ -151,13 +151,13 @@ body::-webkit-scrollbar,
 .support-tickets-sidebar ul::-webkit-scrollbar,
 .code-block-wrapper::-webkit-scrollbar,
 .top-users-list::-webkit-scrollbar, 
-.achievements-list::-webkit-scrollbar, /* Applied for modal content as well */
-.daily-tasks-list::-webkit-scrollbar, /* Applied for modal content as well */
+.achievements-list::-webkit-scrollbar, /* Modified */
+.daily-tasks-list::-webkit-scrollbar, /* Added */
 .ai-chat-page.vk-style .chat-messages-container::-webkit-scrollbar,
 .ai-chat-page.vk-style .chat-input-area textarea::-webkit-scrollbar,
 .personalization-modal-content::-webkit-scrollbar,
 .modal-content::-webkit-scrollbar, /* General modal scrollbar */
-.version-history-page::-webkit-scrollbar
+.version-history-page::-webkit-scrollbar /* Version history page scrollbar */
 {
   display: none;
   width: 0; 
@@ -170,8 +170,8 @@ body,
 .support-tickets-sidebar ul,
 .code-block-wrapper, 
 .top-users-list, 
-.achievements-list, /* Applied for modal content as well */
-.daily-tasks-list, /* Applied for modal content as well */
+.achievements-list, /* Modified */
+.daily-tasks-list, /* Added */
 .ai-chat-page.vk-style .chat-messages-container,
 .ai-chat-page.vk-style .chat-input-area textarea,
 .personalization-modal-content,
@@ -309,68 +309,69 @@ body,
   background-color: var(--card-background-color);
   box-shadow: var(--box-shadow-light);
 }
-.achievements-card, .daily-tasks-card { /* These are now just info cards with buttons */
+.achievements-card, .daily-tasks-card { 
     margin-top: 20px; 
     grid-column: 1 / -1; 
 }
 
-/* Minimalistic Achievements (styling for modal content) */
+/* Minimalistic Achievements */
 .achievements-list {
     list-style: none; padding: 0; margin: 0;
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
-    gap: 15px; 
-    margin-bottom: 0; /* Removed bottom margin as it's in a modal */
-    max-height: 65vh; /* Set max height for scrollability in modal */
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); /* Smaller minmax */
+    gap: 15px; /* Reduced gap */
+    margin-bottom: 20px; max-height: 380px; 
 }
 .achievement-item { 
-    padding: 12px 10px; 
-    border-radius: var(--border-radius-small); 
+    padding: 12px 10px; /* Reduced padding */
+    border-radius: var(--border-radius-small); /* Smaller radius */
     border: 1px solid var(--border-color); 
-    border-left-width: 4px; 
+    border-left-width: 4px; /* Slightly thinner border */
     display: flex; flex-direction: column; align-items: center; text-align: center;
     transition: transform var(--transition-speed), box-shadow var(--transition-speed);
     position: relative; background-color: var(--secondary-background-color); 
-    min-height: 120px; 
+    min-height: 120px; /* Ensure some height */
 }
 .achievement-item:hover { transform: translateY(-2px); box-shadow: var(--box-shadow); }
 .achievement-item.earned { border-left-color: var(--success-color); } 
-.achievement-item.locked { opacity: 0.6; } 
+.achievement-item.locked { opacity: 0.6; } /* Slightly more opaque */
 .achievement-item .achievement-icon { 
-  font-size: 2em; 
+  font-size: 2em; /* Smaller icon */
   margin-bottom: 8px; 
 }
 .achievement-item .achievement-name { 
-  font-weight: 500; 
+  font-weight: 500; /* Slightly lighter weight */
   margin-bottom: 4px; 
-  font-size: 0.9em; 
+  font-size: 0.9em; /* Smaller name */
   line-height: 1.3;
 }
-.achievement-item .achievement-description { display: none; } /* Handled by Tooltip */
+/* Description is removed visually from here, handled by Tooltip */
+.achievement-item .achievement-description { display: none; }
 
 .achievement-item .achievement-level {
-  padding: 2px 6px; 
-  border-radius: var(--border-radius-small); font-size: 0.7em; 
+  padding: 2px 6px; /* Smaller padding */
+  border-radius: var(--border-radius-small); font-size: 0.7em; /* Smaller level text */
   font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;
   margin-top: auto; 
 }
 .achievement-item .achievement-points { 
-  font-size: 0.75em; 
+  font-size: 0.75em; /* Smaller points */
   color: var(--accent-color); font-weight: 500; margin-top: 3px; 
 }
 .achievement-item.secret.locked .achievement-icon { filter: grayscale(1) blur(1.5px); font-size: 1.8em; }
 .achievement-item.secret .achievement-name { font-style: italic; font-size: 0.85em; }
 
 
-/* Minimalistic Daily Tasks (styling for modal content) */
+/* Minimalistic Daily Tasks */
 .daily-tasks-list {
     list-style: none; padding: 0; margin: 0;
-    display: flex; 
-    flex-direction: column; /* Stack vertically in modal by default */
-    gap: 15px; 
-    margin-bottom: 0; /* Removed bottom margin as it's in a modal */
-    max-height: 65vh; /* Set max height for scrollability in modal */
+    display: flex; /* Changed to flex for row layout */
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    gap: 15px; /* Gap between items */
+    margin-bottom: 20px;
 }
 .daily-task-item {
+    flex: 1 1 280px; /* Flex grow, shrink, basis - adjust basis as needed */
+    max-width: 350px; /* Max width for each item */
     padding: 15px;
     border-radius: var(--border-radius);
     border: 1px solid var(--border-color);
@@ -405,7 +406,7 @@ body,
     font-size: 0.8em;
     color: var(--subtle-text-color);
     line-height: 1.3;
-    min-height: 30px; 
+    min-height: 30px; /* Ensure some space for description */
 }
 .daily-task-item .task-reward {
     font-size: 0.9em;
@@ -414,7 +415,7 @@ body,
     margin-left: 10px;
     white-space: nowrap;
 }
-.daily-task-item .task-progress-bar { 
+.daily-task-item .task-progress-bar { /* If using Mui LinearProgress, style it via sx prop */
     height: 6px;
     border-radius: var(--border-radius-small);
     margin-bottom: 8px;
@@ -424,8 +425,8 @@ body,
     color: var(--subtle-text-color);
 }
 .daily-task-item .task-actions {
-    margin-top: auto; 
-    padding-top: 10px; 
+    margin-top: auto; /* Pushes actions to the bottom */
+    padding-top: 10px; /* Space above actions */
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -435,7 +436,7 @@ body,
     font-weight: 500;
     color: var(--text-color);
 }
-.daily-task-item .task-claim-button { 
+.daily-task-item .task-claim-button { /* Style Mui Button via sx or classes */
     font-size: 0.85em !important;
     padding: 6px 12px !important;
 }
@@ -615,14 +616,6 @@ body,
 }
 .message-bubble.user .message-timestamp { text-align: right; color: color-mix(in srgb, var(--vk-chat-user-text) 70%, transparent); }
 .message-bubble.model .message-timestamp, .message-bubble.admin .message-timestamp { text-align: left; }
-
-.message-bubble img.generated-image {
-  max-width: 100%;
-  height: auto;
-  border-radius: var(--border-radius-small);
-  margin-top: 8px;
-  display: block;
-}
 
 
 .ai-chat-page.vk-style .chat-input-area,
@@ -912,12 +905,6 @@ body,
     --content-padding: 16px; /* Reduced for mobile */
   }
   .page-title { font-size: 2em; } .sub-page-title { font-size: 1.6em; }
-  .daily-tasks-list { /* Make tasks stack on smaller screens if in modal too */
-      flex-direction: column;
-  }
-  .daily-task-item { /* Ensure tasks take full width when stacked */
-      max-width: none;
-  }
 }
 @media (max-width: 480px) {
   :root {
@@ -929,7 +916,9 @@ body,
   .auth-container { padding: 20px; }
   .modal-content { padding: 20px; }
   .message-bubble { max-width: 85%; } /* Allow slightly wider bubbles on small screens */
-  .achievements-list { grid-template-columns: 1fr; } /* Stack achievements vertically on very small screens in modal */
+  .achievements-list { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } /* Adjust for very small screens */
+  .daily-tasks-list { flex-direction: column; } /* Stack tasks vertically on very small screens */
+  .daily-task-item { max-width: none; }
 }
 .spinner { width: 22px; height: 22px; border: 3px solid color-mix(in srgb, var(--primary-color) 20%, transparent); border-left-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
 .spinner.small { width: 18px; height: 18px; border-width: 2.5px; }
@@ -1018,41 +1007,23 @@ body,
   padding: 2px 6px; border-radius: var(--border-radius-small); font-size: 0.9em; word-break: break-all;
 }
 .settings-block {
-  margin-bottom: 16px; /* Reduced from 30px */
-  padding: 16px; /* Reduced from 20px */
-  background-color: var(--secondary-background-color); 
-  border-radius: var(--border-radius); 
-  box-shadow: var(--box-shadow-light);
+  margin-bottom: 30px; padding: 20px; background-color: var(--secondary-background-color); 
+  border-radius: var(--border-radius); box-shadow: var(--box-shadow-light);
 }
 .settings-block h3 {
-  margin-top: 0; 
-  margin-bottom: 12px; /* Reduced from 15px */
-  font-size: 1.1rem; /* Reduced from 1.25em */
-  color: var(--text-color);
-  border-bottom: 1px solid var(--divider-color); 
-  padding-bottom: 8px;
+  margin-top: 0; margin-bottom: 15px; font-size: 1.25em; color: var(--text-color);
+  border-bottom: 1px solid var(--divider-color); padding-bottom: 8px;
 }
-.settings-form .form-group { margin-bottom: 12px; /* Reduced from 15px */ }
-.settings-form .form-group label { display: block; margin-bottom: 4px; /* Reduced from 5px */ font-weight: 500; font-size: 0.9rem; }
+.settings-form .form-group { margin-bottom: 15px; }
+.settings-form .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
 .settings-form .form-group input[type="text"],
-.settings-form .form-group input[type="email"], /* Added for consistency */
-.settings-form .form-group input[type="password"], /* Added for consistency */
 .settings-form .form-group input[type="url"],
 .settings-form .form-group input[type="number"], 
 .settings-form .form-group textarea {
-  width: 100%; 
-  padding: 8px 10px; /* Reduced from 10px */
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-small); 
-  font-size: 0.95rem; /* Reduced from 1rem */
-  background-color: var(--secondary-background-color); 
-  color: var(--text-color);
+  width: 100%; padding: 10px; border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-small); font-size: 1rem;
+  background-color: var(--secondary-background-color); color: var(--text-color);
 }
-/* Specific for AppSettingsSection TextFields with MUI dense margin */
-.app-settings-section .MuiTextField-root {
-    margin-bottom: 8px; /* Add some space below dense TextFields */
-}
-
 .settings-form .form-group input:focus,
 .settings-form .form-group textarea:focus {
   border-color: var(--primary-color);
@@ -1403,4 +1374,56 @@ body,
 .admin-dashboard-layout .MuiDrawer-paper .MuiToolbar-root {
     padding-left: 16px; /* Reduced */
     padding-right: 12px; /* Reduced */
+}
+```CDATA[</content>
+  </change>
+  <change>
+    <file>src/types/auth.ts</file>
+    <description>Добавлены опциональные поля в daily_task_progress для поддержки AI-генерируемого контента заданий и отслеживания времени получения награды: `claimed_at_timestamp`, `ai_generated_name`, `ai_generated_description`, `ai_generated_points`, `is_ai_refreshed`.</description>
+    <content><![CDATA[import type { User } from '@supabase/supabase-js';
+
+export interface UserProfile extends User {
+    id: string;
+    email?: string;
+    last_sign_in_at?: string | null; // Added to ensure the property exists on UserProfile
+    user_metadata: {
+        display_name?: string;
+        user_viht_id?: string;
+        client_key?: string;
+        ai_requests_made?: number;
+        ai_requests_limit?: number;
+        is_premium?: boolean;
+        premium_expires_at?: string | null;
+        last_request_reset_at?: string | null;
+        support_tickets_created?: number;
+        activity_points?: number;
+        completed_secret_achievements?: string[];
+        awarded_achievement_points_log?: Record<string, boolean>; // Tracks if points for an achievement_id have been awarded
+        daily_task_progress?: Array<{ // Tracks progress for daily tasks
+            task_id: string;
+            current_value: number;
+            completed_today: boolean; // Task goal met for the day
+            claimed_today: boolean;   // Points for this task claimed for theday
+            last_progress_date: string; // YYYY-MM-DD format
+            claimed_at_timestamp?: number; // Timestamp when reward was claimed, for 24h timer
+            ai_generated_name?: string; // AI-generated name for the task
+            ai_generated_description?: string; // AI-generated description
+            ai_generated_points?: number; // AI-generated points
+            is_ai_refreshed?: boolean; // True if current task content is AI-generated
+        }>;
+        terms_agreed_at?: string | null; // Added for legal agreement
+        [key: string]: any;
+    };
+}
+
+// Placeholder type for the user data admin will see/edit in AdminUsersSection
+export interface SearchedUserAdminView extends UserProfile {
+    // Potentially add more fields here if needed for admin view
+}
+
+export interface TopUser {
+  rank: number;
+  display_name: string;
+  activity_points: number; // Changed from ai_requests_made
+  user_viht_id?: string;    // Added for highlighting current user
 }

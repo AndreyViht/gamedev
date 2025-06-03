@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { UserProfile, PersonalizationSettings } from '../../types';
 import { View, DashboardSection } from '../../enums/appEnums';
@@ -12,7 +11,7 @@ import {
 } from '../../config/settingsKeys';
 
 import { Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, CircularProgress, useMediaQuery, Divider, Toolbar } from '@mui/material';
-import { useTheme, Theme } from '@mui/material/styles'; 
+import { useTheme, Theme as MuiTheme } from '@mui/material/styles'; // Corrected import for useTheme and MuiTheme
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ChatIcon from '@mui/icons-material/Chat';
 import StorefrontIcon from '@mui/icons-material/Storefront';
@@ -48,7 +47,7 @@ interface DashboardMenuItem {
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   user, currentSection, onNavigateSection, personalizationSettings, children, onNavigateGlobal
 }) => {
-  const theme = useTheme<Theme>(); 
+  const theme = useTheme<MuiTheme>(); // MuiTheme is alias for @mui/material/styles/Theme
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
 
