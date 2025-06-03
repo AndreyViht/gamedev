@@ -1,11 +1,10 @@
+
 // @ts-ignore
 /// <reference types="npm:@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
 declare var Deno: any;
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-// Supabase client not needed for this specific function if it's self-contained,
-// unless you need to log to a Supabase table or something similar.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,18 +19,14 @@ async function checkTelegramMembership(botToken: string, chatId: string, userId:
     const data = await response.json();
     if (data.ok) {
       const status = data.result.status;
-      // 'member', 'administrator', 'creator' are considered as being in the chat.
-      // 'left', 'kicked' mean not in the chat.
       return ['member', 'administrator', 'creator'].includes(status);
     } else {
-      console.warn(`Telegram API error checking membership for user ${userId} in chat ${chatId}: ${data.description}`);
-      // If bot can't access chat (e.g., not a member/admin itself, or chat is private and bot is not invited)
-      // it will return an error. In this case, we can't confirm membership.
+      console.warn(`Telegram API error (getChatMember) for user ${userId} in chat ${chatId}: ${data.description}`);
       return false; 
     }
   } catch (error) {
     console.error(`Network error checking Telegram membership for user ${userId} in chat ${chatId}:`, error);
-    return false; // Assume not a member on network or other errors
+    return false;
   }
 }
 
@@ -53,7 +48,7 @@ serve(async (req: Request) => {
     const { conditionType, targetLink, telegramUserId } = body;
 
     if (!conditionType || !targetLink || typeof telegramUserId !== 'number') {
-      return new Response(JSON.stringify({ error: 'conditionType, targetLink, and telegramUserId (number) are required.' }), {
+      return new Response(JSON.stringify({ error: 'conditionType (string), targetLink (string), and telegramUserId (number) are required.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400,
       });
     }
@@ -64,24 +59,22 @@ serve(async (req: Request) => {
         });
     }
     
-    // Normalize targetLink: if it's a full URL, extract username/ID. If it's @username, use as is.
     let chatIdToCheck = targetLink.trim();
+    // Простая нормализация: если ссылка t.me, извлекаем юзернейм/ID. Если уже @юзернейм, используем как есть.
+    // Для публичных каналов/групп @username предпочтительнее. Для приватных может потребоваться ID.
     if (chatIdToCheck.includes('t.me/')) {
         const parts = chatIdToCheck.split('t.me/');
         if (parts.length > 1) {
-            chatIdToCheck = '@' + parts[1].split('/')[0]; // Extract username after t.me/
+            const potentialId = parts[1].split('/')[0]; // Удаляем возможные / постфикы
+            if (!potentialId.startsWith('+')) { // Избегаем join-ссылок типа t.me/+xxxx
+                 chatIdToCheck = '@' + potentialId;
+            } // если это приватная ссылка t.me/+xxxx, getChatMember может не сработать без join'a бота
         }
+    } else if (!chatIdToCheck.startsWith('@') && !chatIdToCheck.startsWith('-100') && !/^\d+$/.test(chatIdToCheck)) {
+         // Если не @username и не числовой ID, предполагаем, что это просто публичное имя без @
+         chatIdToCheck = '@' + chatIdToCheck;
     }
-    // Basic check for public username or channel/group ID (numeric chat_id often starts with -100)
-    if (!chatIdToCheck.startsWith('@') && !chatIdToCheck.startsWith('-100') && !/^\d+$/.test(chatIdToCheck)) {
-        // This is a very basic check. Proper validation for all Telegram ID types is complex.
-        // For join links like t.me/+xxxx, this simple extraction won't work directly with getChatMember.
-        // getChatMember typically needs @channelusername or numeric chat_id.
-        // Assuming targetLink is either @username or a direct numeric ID for now.
-        console.warn(`Potentially unhandled targetLink format for getChatMember: ${targetLink}. Using as is: ${chatIdToCheck}`);
-    }
-
-
+    
     const isMet = await checkTelegramMembership(telegramBotToken, chatIdToCheck, telegramUserId);
 
     return new Response(JSON.stringify({ met: isMet }), {
@@ -90,7 +83,7 @@ serve(async (req: Request) => {
 
   } catch (error) {
     console.error('Function error in check-telegram-condition:', error);
-    if (error instanceof SyntaxError) { // JSON parsing error from req.json()
+    if (error instanceof SyntaxError) {
         return new Response(JSON.stringify({ error: 'Invalid JSON in request body.' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400
         });
