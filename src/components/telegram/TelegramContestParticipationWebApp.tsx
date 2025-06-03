@@ -88,37 +88,65 @@ const TelegramContestParticipationWebApp: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const mainButtonCallbackRef = useRef<(() => void) | null>(null);
+  const [debugInfo, setDebugInfo] = useState<Record<string, any>>({});
 
   useEffect(() => {
+    console.log('[TWA] WebApp component mounted.');
+    const initDataUnsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
+    const currentDebugInfo: Record<string, any> = {
+        initDataUnsafe: JSON.stringify(initDataUnsafe, null, 2),
+        startParam: initDataUnsafe.start_param,
+        locationSearch: window.location.search,
+        isTelegramWebAppDefined: !!window.Telegram?.WebApp,
+    };
+
     if (window.Telegram && window.Telegram.WebApp) {
+      console.log('[TWA] Telegram WebApp SDK found. Calling ready().');
       window.Telegram.WebApp.ready();
       window.Telegram.WebApp.expand();
-      setTelegramUser(window.Telegram.WebApp.initDataUnsafe.user || null);
+      const userFromSDK = window.Telegram.WebApp.initDataUnsafe.user || null;
+      setTelegramUser(userFromSDK);
+      currentDebugInfo.telegramUserIdFromSDK = userFromSDK?.id;
+      currentDebugInfo.telegramUsernameFromSDK = userFromSDK?.username;
 
-      let idFromUrl: string | null = null;
+      let idFromStartParam: string | null = null;
       if (window.Telegram.WebApp.initDataUnsafe.start_param) {
-        idFromUrl = window.Telegram.WebApp.initDataUnsafe.start_param;
-      } else {
-        const params = new URLSearchParams(window.location.search);
-        idFromUrl = params.get('contestId');
+        idFromStartParam = window.Telegram.WebApp.initDataUnsafe.start_param;
+        console.log(`[TWA] contestId from start_param: ${idFromStartParam}`);
+        currentDebugInfo.idFromStartParam = idFromStartParam;
       }
       
-      if (idFromUrl) {
-        setContestId(idFromUrl);
+      const params = new URLSearchParams(window.location.search);
+      const idFromQuery = params.get('contestId');
+      console.log(`[TWA] contestId from URL query (?contestId=): ${idFromQuery}`);
+      currentDebugInfo.idFromQuery = idFromQuery;
+      
+      const finalContestId = idFromStartParam || idFromQuery; // Prefer start_param if available
+
+      if (finalContestId) {
+        console.log(`[TWA] Using contestId: ${finalContestId}`);
+        setContestId(finalContestId);
+        currentDebugInfo.finalContestId = finalContestId;
       } else {
-        setError("ID конкурса не найден.");
+        console.error("[TWA] contestId not found in start_param or URL query.");
+        setError("ID конкурса не найден. Убедитесь, что вы перешли по правильной ссылке от бота.");
         setIsLoadingPage(false);
+        currentDebugInfo.error = "ID конкурса не найден.";
       }
     } else {
+      console.error("[TWA] Telegram WebApp SDK not found. This page should be opened within Telegram.");
       setError("Пожалуйста, откройте эту страницу в приложении Telegram.");
       setIsLoadingPage(false);
+      currentDebugInfo.error = "Telegram WebApp SDK не найден.";
     }
+    setDebugInfo(currentDebugInfo);
   }, []);
 
   const fetchContestDetails = useCallback(async (id: string) => {
     if (!supabase) {
       setError("Клиент Supabase не инициализирован."); setIsLoadingPage(false); return;
     }
+    console.log(`[TWA] Fetching contest details for ID: ${id}`);
     setIsLoadingPage(true); setError(null);
     try {
       const { data, error: dbError } = await supabase
@@ -127,13 +155,21 @@ const TelegramContestParticipationWebApp: React.FC = () => {
         .eq('id', id)
         .single();
 
-      if (dbError) throw dbError;
-      if (!data) throw new Error("Конкурс не найден.");
+      if (dbError) {
+        console.error(`[TWA] DB error fetching contest: ${dbError.message}`);
+        throw dbError;
+      }
+      if (!data) {
+        console.error(`[TWA] Contest with ID ${id} not found in DB.`);
+        throw new Error("Конкурс не найден.");
+      }
       
+      console.log('[TWA] Contest details fetched:', data);
       setContestDetails(data as ContestDetailsDB);
       const initialConditions: ContestConditionClientState[] = [];
       if (new Date(data.end_date) < new Date() || data.status !== 'active') {
         setError("Этот конкурс больше не активен или завершен.");
+        console.warn('[TWA] Contest is not active or has ended.');
       }
 
       if (data.conditions?.subscribeChannelLink) {
@@ -147,8 +183,12 @@ const TelegramContestParticipationWebApp: React.FC = () => {
       }
       setConditionsState(initialConditions);
 
-    } catch (err: any) { setError(`Ошибка загрузки: ${err.message}`);
-    } finally { setIsLoadingPage(false); }
+    } catch (err: any) { 
+      console.error(`[TWA] Error in fetchContestDetails: ${err.message}`);
+      setError(`Ошибка загрузки деталей конкурса: ${err.message}`);
+    } finally { 
+      setIsLoadingPage(false); 
+    }
   }, []);
 
   useEffect(() => { if (contestId) fetchContestDetails(contestId); }, [contestId, fetchContestDetails]);
@@ -157,6 +197,7 @@ const TelegramContestParticipationWebApp: React.FC = () => {
     const condition = conditionsState[index];
     if (!condition.targetLink || !telegramUser?.id || !supabase) return;
 
+    console.log(`[TWA] Checking condition: ${condition.text}`);
     setConditionsState(prev => prev.map((c, i) => i === index ? { ...c, isLoading: true } : c));
     try {
       const { data, error: funcError } = await supabase.functions.invoke('check-telegram-condition', {
@@ -165,10 +206,12 @@ const TelegramContestParticipationWebApp: React.FC = () => {
 
       if (funcError) throw funcError;
       if (data.error) throw new Error(data.error);
-
+      
+      console.log(`[TWA] Condition check result for "${condition.text}": ${data.met}`);
       setConditionsState(prev => prev.map((c, i) => i === index ? { ...c, isMet: data.met, isLoading: false } : c));
       window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(data.met ? 'light' : 'soft');
     } catch (err: any) {
+      console.error(`[TWA] Error checking condition "${condition.text}": ${err.message}`);
       setError(`Проверка "${condition.text}": ${err.message}`);
       setConditionsState(prev => prev.map((c, i) => i === index ? { ...c, isLoading: false, isMet: false } : c));
     }
@@ -183,6 +226,7 @@ const TelegramContestParticipationWebApp: React.FC = () => {
       if (contestDetails && contestDetails.status !== 'active') setError("Конкурс завершен.");
       return;
     }
+    console.log('[TWA] Attempting to participate...');
     setIsRegistering(true); setError(null);
     window.Telegram?.WebApp?.MainButton?.showProgress();
     window.Telegram?.WebApp?.MainButton?.disable();
@@ -195,6 +239,7 @@ const TelegramContestParticipationWebApp: React.FC = () => {
       if (data.error && data.error !== "User already participated.") throw new Error(data.error);
       
       const message = data.message_to_user || (data.error === "User already participated." ? "Вы уже участвуете! 😉" : "🎉 Успешно зарегистрированы!");
+      console.log(`[TWA] Participation result: ${message}`);
       setSuccessMessage(message);
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
       window.Telegram?.WebApp?.MainButton?.setText("Готово!");
@@ -202,15 +247,15 @@ const TelegramContestParticipationWebApp: React.FC = () => {
       setTimeout(() => { window.Telegram?.WebApp?.close(); }, 3500);
 
     } catch (err: any) {
+      console.error(`[TWA] Error during participation: ${err.message}`);
       setError(`Регистрация: ${err.message}`);
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
       if (window.Telegram?.WebApp?.MainButton) {
         window.Telegram.WebApp.MainButton.hideProgress();
-        if (!successMessage) window.Telegram.WebApp.MainButton.enable(); // Re-enable only if error and not already succeeded
+        if (!successMessage) window.Telegram.WebApp.MainButton.enable(); 
       }
     } finally {
       setIsRegistering(false);
-      // Do not hide progress or re-enable button here if success message is set, as timeout will close it
       if (!successMessage && window.Telegram?.WebApp?.MainButton) {
         window.Telegram.WebApp.MainButton.hideProgress();
         window.Telegram.WebApp.MainButton.enable();
@@ -240,8 +285,6 @@ const TelegramContestParticipationWebApp: React.FC = () => {
     return () => {
       if (tgMainButton && mainButtonCallbackRef.current) {
         tgMainButton.offClick(mainButtonCallbackRef.current);
-        // Consider if MainButton should be hidden when component unmounts or view changes
-        // For now, let it persist as Telegram might control its overall visibility.
       }
     };
   }, [conditionsState, successMessage, contestDetails, handleParticipate, contestId, telegramUser]);
@@ -253,10 +296,26 @@ const TelegramContestParticipationWebApp: React.FC = () => {
   const hintColor = themeParams.hint_color || '#999999';
   const linkColor = themeParams.link_color || '#007aff';
   const buttonColor = themeParams.button_color || '#007aff';
-  const buttonTextColor = themeParams.button_text_color || '#ffffff';
 
-  if (isLoadingPage) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', p:2, bgcolor: bgColor }}><CircularProgress sx={{color: buttonColor }} /><Typography sx={{ml:2, color: textColor}}>Загрузка...</Typography></Box>;
+  if (isLoadingPage && !error) { // Show loader only if no error yet
+    return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', p:2, bgcolor: bgColor }}>
+            <CircularProgress sx={{color: buttonColor }} />
+            <Typography sx={{mt:2, color: textColor}}>Загрузка деталей конкурса...</Typography>
+            <Paper elevation={0} sx={{p:1, mt: 2, background: secondaryBgColor, borderRadius: 1, maxWidth: '90%', overflowX: 'auto'}}>
+                <Typography variant="caption" sx={{color: hintColor, fontFamily:'monospace', whiteSpace: 'pre-wrap', fontSize: '0.7rem'}}>
+                    Отладка:<br />
+                    TG User ID: {debugInfo.telegramUserIdFromSDK || 'N/A'}<br />
+                    TG Username: {debugInfo.telegramUsernameFromSDK || 'N/A'}<br />
+                    Contest ID (URL): {debugInfo.idFromQuery || 'N/A'}<br />
+                    Contest ID (start_param): {debugInfo.idFromStartParam || 'N/A'}<br />
+                    Final Contest ID: {debugInfo.finalContestId || 'N/A'}<br />
+                    TG SDK: {debugInfo.isTelegramWebAppDefined ? 'Определен' : 'НЕ ОПРЕДЕЛЕН'}<br />
+                    initDataUnsafe: {debugInfo.initDataUnsafe || 'N/A'}
+                </Typography>
+            </Paper>
+        </Box>
+    );
   }
 
   return (
@@ -264,6 +323,17 @@ const TelegramContestParticipationWebApp: React.FC = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
       {successMessage && <Alert severity="success" sx={{ mb: 2 }}>{successMessage}</Alert>}
       
+       <Paper elevation={0} sx={{p:1, mb: 2, background: secondaryBgColor, borderRadius: 1, maxWidth: '100%', overflowX: 'auto'}}>
+            <Typography variant="caption" sx={{color: hintColor, fontFamily:'monospace', whiteSpace: 'pre-wrap', fontSize: '0.7rem'}}>
+                Отладка:<br />
+                TG User ID: {telegramUser?.id || debugInfo.telegramUserIdFromSDK || 'N/A'}<br />
+                TG Username: {telegramUser?.username || debugInfo.telegramUsernameFromSDK || 'N/A'}<br />
+                Final Contest ID: {contestId || debugInfo.finalContestId || 'N/A'}<br />
+                TG SDK: {window.Telegram?.WebApp ? 'Определен' : 'НЕ ОПРЕДЕЛЕН'}<br />
+                initDataUnsafe: {JSON.stringify(window.Telegram?.WebApp?.initDataUnsafe || {}, null, 2)}
+            </Typography>
+        </Paper>
+
       {contestDetails && !successMessage && (
         <Paper elevation={0} sx={{ p: 2, borderRadius: 2, background: secondaryBgColor }}>
           <Typography variant="h5" component="h1" gutterBottom sx={{fontWeight: 'bold', color: textColor}}>
